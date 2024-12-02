@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: actuation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: actuation
+  template:
+    metadata:
+      labels:
+        app: actuation
+    spec:
+      containers:
+        - name: actuation
+          image: marsprezentace/sif-actuation:latest   # If you do not provide a <tag>, k8s will use `latest`
+          imagePullPolicy: "Always"   # This means the container runtime will pull the image every time the pod is (re-)created. Another possible value is 'IfNotPresent'
+          ports:
+            - containerPort: 8000     # Exposes a port in a given container to receive traffic
+          envFrom:
+            - configMapRef:
+                name: actuation-configmap
