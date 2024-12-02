@@ -1,5 +1,6 @@
-from base import LocalGateway, base_logger, PeriodicTrigger, BaseEventFabric
+from base import LocalGateway, base_logger, PeriodicTrigger, BaseEventFabric, OneShotTrigger
 from fastapi import Request
+import json
 
 class TrainOccupancyModelEvent(BaseEventFabric):
     def __init__(self):
@@ -23,7 +24,7 @@ class CheckEmergencyEvent(BaseEventFabric):
 
 class EmergencyEvent(BaseEventFabric):
     def __init__(self):
-        super(CheckEmergencyEvent, self).__init__()
+        super(EmergencyEvent, self).__init__()
     
     def call(self, *args, **kwargs):
         evt_name = "EmergencyEvent"
@@ -32,11 +33,12 @@ class EmergencyEvent(BaseEventFabric):
         return evt_name, data
 
 async def check_emergency_detection_function(request: Request):
+    base_logger.info("Function check emergency called.")
     data = await request.json()
     base_logger.info(f"Function check_emergency_detection_function received data: {data}")
+    # TODO check the emergency
     emergency_event = EmergencyEvent()
     base_logger.info("emergency_event instatiated. Calling emergency notification function")
-    emergency_event = EmergencyEvent()
     trigger = OneShotTrigger(emergency_event)
     return {"status": "success"}
 
@@ -51,9 +53,9 @@ base_logger.info("check_emergency_event instatiated.")
 periodicTriggerTrainModel = PeriodicTrigger(
     train_occupancy_model_event,
     duration="30s",
-    wait_time="1m"  # Starts after 1 minute, then triggers every 30 seconds
+    wait_time="30s"  # Starts after 30s, then triggers every 30 seconds
 )
-base_logger.info("PeriodicTrigger for train_occupancy_model_event set: Starts after 1 minute, then triggers every 30 seconds")
+base_logger.info("PeriodicTrigger for train_occupancy_model_event set: Starts after 30s, then triggers every 30 seconds")
 
 # Create a periodic trigger for the check_emergency_event event
 periodicTriggerCheckEmergency = PeriodicTrigger(
@@ -69,4 +71,4 @@ base_logger.info("Gateway initiated.")
 
 # Deploy the function
 app.deploy(check_emergency_detection_function, name="check_emergency_detection_function", evts="CheckEmergencyEvent", method="POST")
-base_logger.info("App deployed.")
+base_logger.info("check_emergency_detection_function deployed.")
