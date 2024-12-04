@@ -19,4 +19,5 @@ app.deploy(
     evts="EmergencyEvent", 
     method="POST"
 )
+
 base_logger.info("create_emergency_notification_function app deployed.")

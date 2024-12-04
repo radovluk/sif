@@ -1,25 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: <component-name>
+  name: sif-viz-component
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: <component-name>
+      app: sif-viz-component
   template:
     metadata:
       labels:
-        app: <component-name>
+        app: sif-viz-component
     spec:
-      imagePullSecrets:
-        - name: <secret>
       containers:
-        - name: <component-name>
-          image: <image-name>:<tag>
+        - name: sif-viz-component
+          image: marsprezentace/sif-viz-component:latest
           imagePullPolicy: "Always"
           ports:
             - containerPort: 9000
           envFrom:
             - configMapRef:
-                name: <component-name>-configmap
+                name: sif-viz-component-configmap
