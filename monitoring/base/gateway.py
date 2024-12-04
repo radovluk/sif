@@ -66,13 +66,16 @@ class LocalGateway(FastAPI):
         url = f"{self.scheduler}/api/function"
         if not self.mock:
             evts = evts if isinstance(evts, list) else [evts]
-            http = urllib3.PoolManager()
-            res = http.request('POST', url, json=dict(
-                name=name, url=endpoint, subs=evts, method=method.upper()), retries=urllib3.Retry(5))
-            if res.status >= 300:
-                logger.error(
-                    f"Failure registering function with the scheduler because {res.reason}")
-
+            try:
+                http = urllib3.PoolManager()
+                res = http.request('POST', url, json=dict(
+                    name=name, url=endpoint, subs=evts, method=method.upper()), retries=urllib3.Retry(5))
+                if res.status >= 300:
+                    logger.error(
+                        f"Failure registering function with the scheduler because {res.reason}")
+            except Exception as err:
+                logger.error("Failure during HTTP request")
+                logger.error(err)
         logger.info(
             f"Registered endpoint {endpoint} for {cb.__name__}")
 

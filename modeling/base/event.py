@@ -29,12 +29,16 @@ class BaseEventFabric(ABC):
 
     def __call__(self, *args, **kwargs):
         evt_name, data = self.call(*args, **kwargs)
-        http = urllib3.PoolManager()
-        res = http.request('POST', f"{self.scheduler}/api/event",
-                           json=dict(name=evt_name, data=data), retries=urllib3.Retry(5))
-        if res.status >= 300:
-            print(
-                f"Failure to send EventRequest to the scheduler because {res.reason}")
+        try:
+            http = urllib3.PoolManager()
+            res = http.request('POST', f"{self.scheduler}/api/event",
+                               json=dict(name=evt_name, data=data), retries=urllib3.Retry(5))
+            if res.status >= 300:
+                print(
+                    f"Failure to send EventRequest to the scheduler because {res.reason}")
+        except Exception as err:
+            print("Failure during request because:")
+            print(err)
 
 
 class ExampleEventFabric(BaseEventFabric):

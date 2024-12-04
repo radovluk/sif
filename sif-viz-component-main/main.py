@@ -22,7 +22,9 @@ INFLUX_TOKEN = os.environ.get(
 INFLUX_USER = os.environ.get("INFLUXDB_USER", None)
 INFLUX_PASS = os.environ.get("INFLUXDB_PASS", None)
 
-if INFLUX_TOKEN is None or INFLUX_USER is None or INFLUX_PASS is None:
+SIF_SCHEDULER = os.environ.get("SCH_SERVICE_NAME", None)
+
+if INFLUX_TOKEN is None or INFLUX_USER is None or INFLUX_PASS is None or SIF_SCHEDULER is None:
     raise ValueError("Missing env variables")
 
 
@@ -118,7 +120,7 @@ def get_info():
 @app.get("/api/sif")
 def get_sif_status():
     http = urllib3.PoolManager()
-    res = http.request("GET", "sif-edge.sif:9000/api/status")
+    res = http.request("GET", f"{SIF_SCHEDULER}/api/status")
     data = json.loads(res.data)
     logger.info(data)
     return data

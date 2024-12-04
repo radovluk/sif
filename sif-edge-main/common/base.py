@@ -54,16 +54,20 @@ class Invocation(ABC):
         self.mock = mock
 
     def invoke(self):
-        if not self.mock:
-            # TODO: Add retries method and provide feedback with function name
-            if self.method == "GET":
-                self.kwargs = {}
+        try:
+            if not self.mock:
+                # TODO: Add retries method and provide feedback with function name
+                if self.method == "GET":
+                    self.kwargs = {}
 
-            res = urllib3.request(self.method, self.url, **self.kwargs)
-            if res.status >= 300:
-                logger.warn(
-                    f"failure to invoke remote resource because: [{res.reason}]")
-        logger.info("invocation has been dispatched")
+                res = urllib3.request(self.method, self.url, **self.kwargs)
+                if res.status >= 300:
+                    logger.warn(
+                        f"failure to invoke remote resource because: [{res.reason}]")
+                logger.info("invocation has been dispatched")
+        except Exception as err:
+            logger.error("Failure during invocation...")
+            logger.error(err)
         return
 
 
