@@ -26,8 +26,8 @@ MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "models")
 MINIO_OBJECT_NAME_PREFIX = os.environ.get("MINIO_OBJECT_NAME", "model")
 LATEST_POINTER_FILE = "latest.txt"  # This file will store the name of the latest model object
 
-TRAIN_MODEL_INTERVAL = "4m"
-CHECK_EMERGENCY_INTERVAL = "2m"
+TRAIN_MODEL_INTERVAL = "5h"
+CHECK_EMERGENCY_INTERVAL = "10m"
 
 sensor_data = {
     "kitchen": {
@@ -355,7 +355,7 @@ async def check_emergency_detection_function(request: Request):
     sensor_data = fetch_all_sensor_data(hours=3) #fetch the data of last three hours
     fetched_data_df = prepare_data_for_model(sensor_data)
     emergency_detected, message = detect_emergency(fetched_data_df, room_stats)
-    if True: # TODO change this emergency_detected:
+    if emergency_detected:
         base_logger.info(f"Emergency detected: {message}")
         emergency_event = EmergencyEvent(message)
         base_logger.info("emergency_event instatiated. Calling emergency notification function")

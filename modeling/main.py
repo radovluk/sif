@@ -389,7 +389,7 @@ def send_info(summary, detail, level):
         # If 'detail' is a dictionary or a serializable object
         serialized_detail = json.dumps(detail)
     except (TypeError, ValueError) as e:
-        logger.error(f"Failed to serialize 'detail': {e}")
+        base_logger.error(f"Failed to serialize 'detail': {e}")
         # Fallback to string conversion if serialization fails
         serialized_detail = str(detail)
 
@@ -405,7 +405,7 @@ def send_info(summary, detail, level):
     try:
         encoded_data = json.dumps(info_item).encode('utf-8')
     except (TypeError, ValueError) as e:
-        logger.error(f"Failed to encode Information item to JSON: {e}")
+        base_logger.error(f"Failed to encode Information item to JSON: {e}")
         return
 
     # Initialize the PoolManager
@@ -430,21 +430,21 @@ def send_info(summary, detail, level):
         
         # Check the response status
         if response.status in [200, 201]:
-            logger.info("Information item saved successfully.")
+            base_logger.info("Information item saved successfully.")
             # Optionally, parse the response data
             if response.data:
                 try:
                     response_data = json.loads(response.data.decode('utf-8'))
-                    logger.info(f"Response: {response_data}")
+                    base_logger.info(f"Response: {response_data}")
                 except json.JSONDecodeError:
-                    logger.warning("Response data is not valid JSON.")
+                    base_logger.warning("Response data is not valid JSON.")
         else:
-            logger.error(f"Failed to save Information item. Status Code: {response.status}")
-            logger.error(f"Response: {response.data.decode('utf-8')}")
+            base_logger.error(f"Failed to save Information item. Status Code: {response.status}")
+            base_logger.error(f"Response: {response.data.decode('utf-8')}")
     except urllib3.exceptions.HTTPError as e:
-        logger.error(f"HTTP error occurred: {e}")
+        base_logger.error(f"HTTP error occurred: {e}")
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
+        base_logger.error(f"An unexpected error occurred: {e}")
 
 
 ################ start of the main app ################
