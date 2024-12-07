@@ -4,6 +4,7 @@ import json
 import urllib3
 import logging
 import pickle
+import time
 
 import pandas as pd
 from sklearn.ensemble import IsolationForest
@@ -39,6 +40,8 @@ MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "N8iyTd2nJGgBKUVvnrdDRlFvy
 MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "models")
 MINIO_OBJECT_NAME_PREFIX = os.environ.get("MINIO_OBJECT_NAME", "model")
 LATEST_POINTER_FILE = "latest.txt"  # This file will store the name of the latest model object
+
+VIZ_COMPONENT_URL = "http://192.168.81.143:9000"
 
 sensor_data = {
     "kitchen": {
@@ -369,6 +372,81 @@ def train_model(sensor_data_df):
 
     return room_stats
 
+def send_info(summary, detail, level):
+    """
+    Sends an Information item to the FastAPI /api/info endpoint.
+
+    Args:
+        summary (str): A brief summary of the information.
+        detail (dict or object): Detailed information or description.
+        level (int): The priority or level of the information.
+    """
+    # Generate the current Unix timestamp in milliseconds
+    current_timestamp = int(time.time() * 1000)
+
+    # Serialize the detail object to a JSON-formatted string
+    try:
+        # If 'detail' is a dictionary or a serializable object
+        serialized_detail = json.dumps(detail)
+    except (TypeError, ValueError) as e:
+        logger.error(f"Failed to serialize 'detail': {e}")
+        # Fallback to string conversion if serialization fails
+        serialized_detail = str(detail)
+
+    # Create the Information item with 'detail' as a string
+    info_item = {
+        "timestamp": current_timestamp,
+        "summary": summary,
+        "detail": serialized_detail,
+        "level": level
+    }
+
+    # Convert the Python dictionary to a JSON string
+    try:
+        encoded_data = json.dumps(info_item).encode('utf-8')
+    except (TypeError, ValueError) as e:
+        logger.error(f"Failed to encode Information item to JSON: {e}")
+        return
+
+    # Initialize the PoolManager
+    http = urllib3.PoolManager()
+
+    # Define the URL
+    url = f"{VIZ_COMPONENT_URL}/api/info"
+
+    # Set the headers
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        # Send the POST request
+        response = http.request(
+            'POST',
+            url,
+            body=encoded_data,
+            headers=headers
+        )
+        
+        # Check the response status
+        if response.status in [200, 201]:
+            logger.info("Information item saved successfully.")
+            # Optionally, parse the response data
+            if response.data:
+                try:
+                    response_data = json.loads(response.data.decode('utf-8'))
+                    logger.info(f"Response: {response_data}")
+                except json.JSONDecodeError:
+                    logger.warning("Response data is not valid JSON.")
+        else:
+            logger.error(f"Failed to save Information item. Status Code: {response.status}")
+            logger.error(f"Response: {response.data.decode('utf-8')}")
+    except urllib3.exceptions.HTTPError as e:
+        logger.error(f"HTTP error occurred: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {e}")
+
+
 ################ start of the main app ################
 #######################################################
 if INFLUX_TOKEN is None or INFLUX_USER is None or INFLUX_PASS is None:
@@ -386,6 +464,7 @@ async def create_occupancy_model_function(request: Request):
     sensor_data_df = prepare_data_for_model(sensor_data)
     room_stats = train_model(sensor_data_df)
     save_model_to_minio(room_stats)
+    send_info("New model was successfully trained!", "New model was trained", 1)
     return {"status": "success"}
 
 app.deploy(

@@ -26,6 +26,9 @@ MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "models")
 MINIO_OBJECT_NAME_PREFIX = os.environ.get("MINIO_OBJECT_NAME", "model")
 LATEST_POINTER_FILE = "latest.txt"  # This file will store the name of the latest model object
 
+TRAIN_MODEL_INTERVAL = "4m"
+CHECK_EMERGENCY_INTERVAL = "2m"
+
 sensor_data = {
     "kitchen": {
         "battery": "1_5_10", 
@@ -334,14 +337,15 @@ class CheckEmergencyEvent(BaseEventFabric):
         return evt_name, data
 
 class EmergencyEvent(BaseEventFabric):
-    def __init__(self):
+    def __init__(self, message):
         super(EmergencyEvent, self).__init__()
+        self.message = message
     
     def call(self, *args, **kwargs):
         evt_name = "EmergencyEvent"
         data = {"message": "Now I will trigger emergency"}
-        base_logger.info(f"Event generated: {evt_name} with data {data}")
-        return evt_name, data
+        base_logger.info(f"Event generated: {evt_name} with message {self.message}")
+        return evt_name, self.message
 
 async def check_emergency_detection_function(request: Request):
     base_logger.info("Function check emergency called.")
@@ -351,9 +355,9 @@ async def check_emergency_detection_function(request: Request):
     sensor_data = fetch_all_sensor_data(hours=3) #fetch the data of last three hours
     fetched_data_df = prepare_data_for_model(sensor_data)
     emergency_detected, message = detect_emergency(fetched_data_df, room_stats)
-    if emergency_detected:
+    if True: # TODO change this emergency_detected:
         base_logger.info(f"Emergency detected: {message}")
-        emergency_event = EmergencyEvent()
+        emergency_event = EmergencyEvent(message)
         base_logger.info("emergency_event instatiated. Calling emergency notification function")
         trigger = OneShotTrigger(emergency_event)
     else:
@@ -369,7 +373,7 @@ base_logger.info("check_emergency_event instatiated.")
 # Create a periodic trigger for the train_occupancy_model_event event
 periodicTriggerTrainModel = PeriodicTrigger(
     train_occupancy_model_event,
-    duration="10m",
+    duration=TRAIN_MODEL_INTERVAL,
     wait_time="1m"  # Starts after 30s, then triggers every 30 seconds
 )
 base_logger.info("PeriodicTrigger for train_occupancy_model_event set: Starts after 30s, then triggers every 2 minutes")
@@ -377,7 +381,7 @@ base_logger.info("PeriodicTrigger for train_occupancy_model_event set: Starts af
 # Create a periodic trigger for the check_emergency_event event
 periodicTriggerCheckEmergency = PeriodicTrigger(
     check_emergency_event,
-    duration="5m",
+    duration=CHECK_EMERGENCY_INTERVAL,
     wait_time="30s"  # Starts after 1 minute, then triggers every 30 seconds
 )
 base_logger.info("PeriodicTrigger for check_emergency_event set: Starts after 1 minute, then triggers every 30 seconds")
