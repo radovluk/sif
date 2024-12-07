@@ -11,6 +11,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from minio import Minio
 from minio.error import S3Error
+from io import BytesIO
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,8 +19,11 @@ from datetime import datetime, timedelta
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from logging.handlers import RotatingFileHandler
 from influxdb_client.client.write_api import SYNCHRONOUS
-from base import LocalGateway
+from base import LocalGateway, base_logger
 from fastapi import Request
+
+# how old data to use for retraiing
+FETCHED_DATA_FOR_RETRAINING_HOURS = 24*7*2
 
 # Influx configuration
 INFLUX_ORG = "wise2024"
@@ -29,10 +33,12 @@ INFLUX_USER = os.environ.get("INFLUXDB_USER", "admin")
 INFLUX_PASS = os.environ.get("INFLUXDB_PASS", "secure_influx_iot_user")
 
 # MinIO Configuration
-MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "localhost:9000")
-MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
-MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "minioadmin")
+MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "192.168.81.143:9090")
+MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "9JyddmA0YyaIxd6Kl5pO")
+MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "N8iyTd2nJGgBKUVvnrdDRlFvyZGOM5macCTAIADJ")
 MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "models")
+MINIO_OBJECT_NAME_PREFIX = os.environ.get("MINIO_OBJECT_NAME", "model")
+LATEST_POINTER_FILE = "latest.txt"  # This file will store the name of the latest model object
 
 sensor_data = {
     "kitchen": {
@@ -65,17 +71,6 @@ PIR_BUCKETS = ["1_5_9", "1_4_7", "1_3_6"]
 MAGNETIC_SWITCH_BUCKETS = ["1_4_11"]
 BATTERY_BUCKETS = ["1_5_10", "1_4_8"]
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        RotatingFileHandler("log.log", maxBytes=1e9, backupCount=2),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
-logger = logging.getLogger("viz_component")
-
 def fetch_data(bucket, measurement, field, hours=24):
     with InfluxDBClient(url=INFLUX_TOKEN, org=INFLUX_ORG, username=INFLUX_USER, password=INFLUX_PASS, verify_ssl=False) as client:
         p = {
@@ -90,11 +85,11 @@ def fetch_data(bucket, measurement, field, hours=24):
                                  |> filter(fn: (r) => r["_field"] == "{field}")
                                  ''', params=p)
         obj = []
-        logger.info(tables)
+        base_logger.info(tables)
         for table in tables:
             for record in table.records:
                 val = {}
-                logger.info(record)
+                base_logger.info(record)
                 val["sensor"] = bucket_dict[bucket]
                 val["bucket"] = bucket
                 val["timestamp"] = record["_time"].timestamp() * 1000
@@ -165,104 +160,132 @@ def fetch_all_sensor_data(hours=1):
 
     return all_sensor_data
 
-def initialize_minio_client(minio_config):
+def initialize_minio_client():
     """
     Initialize and return a MinIO client.
-    
-    Parameters:
-    - minio_config: Dictionary containing MinIO configuration:
-        {
-            'endpoint': 'play.min.io:9000',
-            'access_key': 'YOURACCESSKEY',
-            'secret_key': 'YOURSECRETKEY',
-            'secure': True  # False if using HTTP
-        }
-    
     Returns:
-    - client: Minio client object
+    - client (Minio): Initialized MinIO client.
     """
     try:
         client = Minio(
-            endpoint=minio_config['endpoint'],
-            access_key=minio_config['access_key'],
-            secret_key=minio_config['secret_key'],
-            secure=minio_config.get('secure', True)
+            endpoint=MINIO_ENDPOINT,
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY,
+            secure=False
         )
+        base_logger.info("Initialized MinIO client successfully.")
         return client
     except Exception as e:
-        print(f"Error initializing MinIO client: {e}")
+        base_logger.error(f"Error initializing MinIO client: {e}")
         return None
-
-def ensure_bucket_exists(client, bucket_name):
-    """
-    Ensure that the specified bucket exists in MinIO. Create it if it doesn't.
-    
-    Parameters:
-    - client: Minio client object
-    - bucket_name: Name of the bucket to check/create
-    
-    Returns:
-    - None
-    """
-    try:
-        if not client.bucket_exists(bucket_name):
-            client.make_bucket(bucket_name)
-            print(f"Bucket '{bucket_name}' created.")
-        else:
-            print(f"Bucket '{bucket_name}' already exists.")
-    except S3Error as e:
-        print(f"Error checking/creating bucket: {e}")
 
 def save_model_to_minio(room_stats):
     """
-    Save the room statistics model to MinIO.
-    
-    Parameters:
-    - room_stats: pandas DataFrame containing mean and std of duration_seconds per room
-    - minio_config: Dictionary containing MinIO configuration:
-        {
-            'endpoint': 'play.min.io:9000',
-            'access_key': 'YOURACCESSKEY',
-            'secret_key': 'YOURSECRETKEY',
-            'secure': True,  # False if using HTTP
-            'bucket_name': 'models',
-            'object_name': 'room_stats.json'  # or .csv, etc.
-        }
-    
-    Returns:
-    - None
+    Save the room statistics model to MinIO, keeping previous versions.
+    It also updates a 'latest.txt' file with the name of the newly saved model.
     """
+
     # Serialize the model (room_stats) to JSON
     model_json = room_stats.to_json(orient='records', date_format='iso')
-    
+
     # Initialize MinIO client
-    client = initialize_minio_client(minio_config)
+    client = initialize_minio_client()
     if client is None:
-        print("Failed to initialize MinIO client.")
+        base_logger.error("Failed to initialize MinIO client. Model not saved.")
         return
-    
+
     # Ensure the bucket exists
-    ensure_bucket_exists(client, minio_config['bucket_name'])
-    
-    # Upload the model to MinIO
-    object_name = minio_config['object_name']
+    if not client.bucket_exists(MINIO_BUCKET):
+        client.make_bucket(MINIO_BUCKET)
+        base_logger.info(f"Bucket '{MINIO_BUCKET}' created.")
+    else:
+        base_logger.info(f"Bucket '{MINIO_BUCKET}' already exists.")
+
+    # Create a timestamped object name to keep old versions
+    timestamp_str = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    object_name = f"{MINIO_OBJECT_NAME_PREFIX}_{timestamp_str}.json"
+
     try:
         # Convert JSON string to bytes
         data = model_json.encode('utf-8')
-        data_stream = io.BytesIO(data)
+        data_stream = BytesIO(data)
         data_length = len(data)
-        
-        # Upload the object
+
+        # Upload the versioned model
         client.put_object(
-            bucket_name=minio_config['bucket_name'],
+            bucket_name=MINIO_BUCKET,
             object_name=object_name,
             data=data_stream,
             length=data_length,
             content_type='application/json'
         )
-        print(f"Model saved to MinIO as '{object_name}' in bucket '{minio_config['bucket_name']}'.")
+        base_logger.info(f"Model saved to MinIO as '{object_name}' in bucket '{MINIO_BUCKET}'.")
+
+        # Update the "latest" pointer
+        latest_data = object_name.encode('utf-8')
+        latest_stream = BytesIO(latest_data)
+        client.put_object(
+            bucket_name=MINIO_BUCKET,
+            object_name=LATEST_POINTER_FILE,
+            data=latest_stream,
+            length=len(latest_data),
+            content_type='text/plain'
+        )
+        base_logger.info(f"'{LATEST_POINTER_FILE}' updated to point to '{object_name}'.")
+
     except S3Error as e:
-        print(f"Error uploading model to MinIO: {e}")
+        base_logger.error(f"Error uploading model to MinIO: {e}")
+
+def load_model_from_minio():
+    """
+    Load the latest room statistics model from MinIO by first reading the 'latest.txt'
+    file to determine the newest model file.
+    Returns:
+    - room_stats (pandas DataFrame): Loaded room statistics.
+    """
+    # Initialize MinIO client
+    client = initialize_minio_client()
+    if client is None:
+        base_logger.error("Failed to initialize MinIO client. Model not loaded.")
+        return None
+
+    # First, get the name of the latest model from 'latest.txt'
+    try:
+        response = client.get_object(
+            bucket_name=MINIO_BUCKET,
+            object_name=LATEST_POINTER_FILE
+        )
+        latest_object_name = response.read().decode('utf-8').strip()
+        response.close()
+        response.release_conn()
+        base_logger.info(f"Latest model object determined from '{LATEST_POINTER_FILE}': '{latest_object_name}'")
+    except S3Error as e:
+        base_logger.error(f"Error reading latest model pointer file '{LATEST_POINTER_FILE}': {e}")
+        return None
+
+    # Now download the latest model object
+    try:
+        response = client.get_object(
+            bucket_name=MINIO_BUCKET,
+            object_name=latest_object_name
+        )
+        data = response.read()
+        response.close()
+        response.release_conn()
+        base_logger.info(f"Model '{latest_object_name}' downloaded from MinIO bucket '{MINIO_BUCKET}'.")
+    except S3Error as e:
+        base_logger.error(f"Error downloading model '{latest_object_name}' from MinIO: {e}")
+        return None
+
+    # Deserialize JSON to DataFrame
+    try:
+        model_json = data.decode('utf-8')
+        room_stats = pd.read_json(StringIO(model_json), orient='records')
+        base_logger.info("Model deserialized successfully.")
+        return room_stats
+    except Exception as e:
+        base_logger.error(f"Error deserializing model JSON: {e}")
+        return None
 
 def prepare_data_for_model(sensor_data):
     """
@@ -273,17 +296,17 @@ def prepare_data_for_model(sensor_data):
     """
     # Convert list of dictionaries to DataFrame
     df = pd.DataFrame(sensor_data)
-    logger.info(f"Original data shape: {df.shape}")
+    base_logger.info(f"Original data shape: {df.shape}")
 
     # Handle cases where 'sensor' is a list by extracting the first element
     if 'sensor' in df.columns:
         df['sensor'] = df['sensor'].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else 'unknown_sensor')
-        logger.debug("Converted 'sensor' from list to string.")
+        base_logger.debug("Converted 'sensor' from list to string.")
 
     # Convert timestamp from milliseconds to datetime
     if 'timestamp' in df.columns:
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        logger.debug("Converted 'timestamp' to datetime.")
+        base_logger.debug("Converted 'timestamp' to datetime.")
 
     # Sort by timestamp
     df = df.sort_values('timestamp')
@@ -293,17 +316,33 @@ def prepare_data_for_model(sensor_data):
         le = LabelEncoder()
         try:
             df['sensor_encoded'] = le.fit_transform(df['sensor'])
-            logger.debug("Encoded 'sensor' successfully.")
+            base_logger.debug("Encoded 'sensor' successfully.")
         except Exception as e:
-            logger.error(f"Error encoding 'sensor' column: {e}")
+            base_logger.error(f"Error encoding 'sensor' column: {e}")
             df['sensor_encoded'] = 0  # Assign a default value or handle as needed
 
     return df
 
-def train_model(sensor_data_df):
-    # parse time stamps
-    sensor_data_df['timestamp'] = sensor_data_df.to_datetime(df['timestamp'])
 
+    """
+    Compute mean and standard deviation of duration_seconds per room.
+
+    Parameters:
+    - duration_df (pandas DataFrame): Duration information.
+
+    Returns:
+    - room_stats (pandas DataFrame): Statistics per room.
+    """
+    # Group by 'value' (room) and calculate statistics
+    room_stats = duration_df.groupby('value')['duration_seconds'].agg(['mean', 'std']).reset_index()
+
+    # Handle cases where std might be NaN (e.g., only one entry for a room)
+    room_stats['std'] = room_stats['std'].fillna(0)
+
+    base_logger.info(f"Computed room statistics:\n{room_stats}")
+    return room_stats
+
+def train_model(sensor_data_df):
     # Create a flag that indicates when the 'value' changes compared to the previous row
     sensor_data_df['room_change'] = (sensor_data_df['value'] != sensor_data_df['value'].shift(1)).astype(int)
 
@@ -328,33 +367,31 @@ def train_model(sensor_data_df):
     # Handle cases where std might be NaN (e.g., only one entry for a room)
     room_stats['std'] = room_stats['std'].fillna(0)
 
+    return room_stats
+
 ################ start of the main app ################
 #######################################################
+if INFLUX_TOKEN is None or INFLUX_USER is None or INFLUX_PASS is None:
+    raise ValueError("Missing env variables")
 
-sensor_data = fetch_all_sensor_data(hours=24*7*2)
-sensor_data_df = prepare_data_for_model(sensor_data)
-room_stats = train_model(sensor_data_df)
-save_model_to_minio = (room_stats)
+app = LocalGateway()
+base_logger.info("Gateway initiated.")
 
-# if INFLUX_TOKEN is None or INFLUX_USER is None or INFLUX_PASS is None:
-#     raise ValueError("Missing env variables")
+async def create_occupancy_model_function(request: Request):
+    base_logger.info("Function create occupancy model called.")
+    data = await request.json()
+    base_logger.info(f"Function create_occupancy_model_function received data: {data}")
+    base_logger.info("Now I will retrain and store the new model to Minio.")
+    sensor_data = fetch_all_sensor_data(hours=FETCHED_DATA_FOR_RETRAINING_HOURS)
+    sensor_data_df = prepare_data_for_model(sensor_data)
+    room_stats = train_model(sensor_data_df)
+    save_model_to_minio(room_stats)
+    return {"status": "success"}
 
-# app = LocalGateway()
-# base_logger.info("Gateway initiated.")
-
-# async def create_occupancy_model_function(request: Request):
-#     base_logger.info("Function create occupancy model called.")
-#     data = await request.json()
-#     base_logger.info(f"Function create_occupancy_model_function received data: {data}")
-#     base_logger.info("Now I will retrain and store the new model to Minio.")
-#     # TODO Retrain and store the model to Minio
-#     return {"status": "success"}
-
-# app.deploy(
-#     create_occupancy_model_function,
-#     name="create_occupancy_model_function",
-#     evts="TrainOccupancyModelEvent",
-#     method="POST"
-# )
-
-# base_logger.info("create_occupancy_model_function app deployed.")
+app.deploy(
+    create_occupancy_model_function,
+    name="create_occupancy_model_function",
+    evts="TrainOccupancyModelEvent",
+    method="POST"
+)
+base_logger.info("create_occupancy_model_function deployed.")
