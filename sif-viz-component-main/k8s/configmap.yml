@@ -8,3 +8,4 @@ data:
   INFLUXDB_HOST: http://influx.iot.svc.cluster.local:8086
   INFLUXDB_USER: admin
   INFLUXDB_PASS: secure_influx_iot_user
+  # SCH_SERVICE_NAME: http://sif-edge.sif:9000

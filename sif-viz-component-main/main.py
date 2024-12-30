@@ -11,25 +11,18 @@ from influxdb_client import InfluxDBClient, Point, WritePrecision
 from logging.handlers import RotatingFileHandler
 from influxdb_client.client.write_api import SYNCHRONOUS
 
+from config import (
+    INFLUX_ORG,
+    INFLUX_TOKEN,
+    INFLUX_USER,
+    INFLUX_PASS,
+    SIF_SCHEDULER,
+    TODO_BUCKET,
+    INFO_BUCKET,
+    BUCKETS
+)
+
 from models import ToDo, Information, DeleteBody
-
-TODO_BUCKET = "todo_record"
-INFO_BUCKET = "info_record"
-
-INFLUX_ORG = "wise2024"
-INFLUX_TOKEN = os.environ.get(
-    "INFLUXDB_HOST", "192.168.81.143:8086")
-INFLUX_USER = os.environ.get("INFLUXDB_USER", "admin")
-INFLUX_PASS = os.environ.get("INFLUXDB_PASS", "secure_influx_iot_user")
-
-SIF_SCHEDULER = os.environ.get("SCH_SERVICE_NAME", "http://192.168.81.143:30032")
-# SIF_SCHEDULER = os.environ.get("SCH_SERVICE_NAME", "http://sif-edge.sif:9000/")
-
-if INFLUX_TOKEN is None or INFLUX_USER is None or INFLUX_PASS is None or SIF_SCHEDULER is None:
-    raise ValueError("Missing env variables")
-
-
-BUCKETS = [TODO_BUCKET, INFO_BUCKET]
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -158,23 +151,3 @@ def delete_todo(body: DeleteBody):
 @app.delete("/api/info")
 def delete_todo(body: DeleteBody):
     delete_data("info_record", "info_entry", "info", body.timestamp)
-
-# import time
-# # Instantiate a ToDo object
-# todo_example = ToDo(
-#     timestamp=int(time.time() * 1000),
-#     titel="Buy groceries",
-#     msg="Milk, eggs, bread, and butter.",
-#     level=1
-# )
-# save_todo(todo_example)
-
-# # infor example
-# info_example = Information(
-#     timestamp=int(time.time() * 1000),
-#     summary="Buy groceries",  # This corresponds to `summary` in the Information model
-#     detail="Milk, eggs, bread, and butter.",  # This corresponds to `detail` in the Information model
-#     level=1
-# )
-
-# save_info(info_example)

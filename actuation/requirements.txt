@@ -3,3 +3,7 @@ fastapi[standard]
 durationpy
 psutil
 urllib3
+influxdb_client
+pandas
+scikit-learn
+minio
