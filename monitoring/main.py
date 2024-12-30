@@ -92,7 +92,7 @@ async def check_emergency_detection_function(request: Request):
 
         # Load room stats (model) from MinIO
         room_stats = load_model_from_minio()
-        if not room_stats:
+        if room_stats is None or room_stats.empty:
             raise RuntimeError("Failed to load model from MinIO.")
 
         # Fetch sensor data and prepare it for the model

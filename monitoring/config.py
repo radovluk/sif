@@ -3,10 +3,10 @@ import os
 CURRENT_IP = "192.168.8.159" # Prague IP
 # CURRENT_IP = "192.168.81.143" # Munich IP home
 
-TRAIN_MODEL_INTERVAL = "3m"  # The model will be retrained every 6 hours
+TRAIN_MODEL_INTERVAL = "12h"  # The model will be retrained every 6 hours
 TRAIN_MODEL_WAIT_TIME = "30s"  # Wait 10 minutes before starting the first retraining
 
-CHECK_EMERGENCY_INTERVAL = "2m"  # Check for emergencies every 15 minutes
+CHECK_EMERGENCY_INTERVAL = "10m"  # Check for emergencies every 15 minutes
 CHECK_EMERGENCY_WAIT_TIME = "1m"  # Wait 1 minute before starting the first emergency check
 
 FETCH_START_HOURS = 24 * 7 * 4 # Start of the interval for fetching data used for emergency detection

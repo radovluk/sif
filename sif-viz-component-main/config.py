@@ -1,3 +1,5 @@
+import os 
+
 CURRENT_IP = "192.168.8.159" # Prague IP
 # CURRENT_IP = "192.168.81.143" # Munich IP home
 
