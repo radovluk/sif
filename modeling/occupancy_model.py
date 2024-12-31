@@ -4,7 +4,7 @@ from sklearn.preprocessing import LabelEncoder
 
 base_logger = logging.getLogger(__name__)
 
-def prepare_data_for_model(sensor_data: list) -> pd.DataFrame:
+def prepare_data_for_occupancy_model(sensor_data: list) -> pd.DataFrame:
     """
     Prepare sensor data for model training.
     """
@@ -36,7 +36,7 @@ def prepare_data_for_model(sensor_data: list) -> pd.DataFrame:
     return df
 
 
-def train_model(sensor_data_df: pd.DataFrame) -> pd.DataFrame:
+def train_occupancy_model(sensor_data_df: pd.DataFrame) -> pd.DataFrame:
     """
     Train model by computing mean & std of durations per 'value' (room).
     """

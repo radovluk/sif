@@ -3,20 +3,31 @@ import os
 
 from fastapi import Request
 
-from base import BaseEventFabric, PeriodicTrigger, OneShotTrigger
+from base import PeriodicTrigger, OneShotTrigger
 from base.gateway import LocalGateway
 from base.homecare_hub_utils import send_info
 from base.influx_utils import fetch_all_sensor_data
 from base.minio_utils import load_model_from_minio
-from config import (
-    TRAIN_MODEL_INTERVAL,
-    CHECK_EMERGENCY_INTERVAL,
-    TRAIN_MODEL_WAIT_TIME,
-    CHECK_EMERGENCY_WAIT_TIME,
-    FETCH_START_HOURS,
-    FETCH_INTERVAL_HOURS
-)
 from detection import detect_emergency, prepare_data_for_detection
+from base.event import (
+    TrainOccupancyModelEvent,
+    CheckEmergencyEvent,
+    EmergencyEvent,
+    TrainMotionModelEvent,
+    AnalyzeMotionEvent
+)
+from config import (
+    TRAIN_OCCUPANCY_MODEL_INTERVAL,
+    TRAIN_OCCUPANCY_MODEL_WAIT_TIME,
+    TRAIN_MOTION_MODEL_INTERVAL,
+    TRAIN_MOTION_MODEL_WAIT_TIME,
+    CHECK_EMERGENCY_INTERVAL,
+    CHECK_EMERGENCY_WAIT_TIME,
+    ANALYSE_MOTION_INTERVAL,
+    ANALYSE_MOTION_WAIT_TIME,
+    START_HOURS_FOR_EMERGENCY_DETECTION,
+    INTERVAL_HOURS_FOR_EMERGENCY_DETECTION
+)
 
 # Configure logging
 logging.basicConfig(
@@ -24,59 +35,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-
-class TrainOccupancyModelEvent(BaseEventFabric):
-    """
-    Event class responsible for triggering an occupancy model retraining.
-    """
-    def call(self, *args, **kwargs):
-        """
-        Execute when the event is triggered.
-
-        :return: Tuple of (event_name, data_dict)
-        """
-        event_name = "TrainOccupancyModelEvent"
-        data = {"message": "Retraining the occupancy model"}
-        logger.info(f"Event generated: {event_name} with data {data}")
-        return event_name, data
-
-
-class CheckEmergencyEvent(BaseEventFabric):
-    """
-    Event class responsible for checking emergency conditions.
-    """
-    def call(self, *args, **kwargs):
-        """
-        Execute when the event is triggered.
-
-        :return: Tuple of (event_name, data_dict)
-        """
-        event_name = "CheckEmergencyEvent"
-        data = {"message": "Checking for emergencies"}
-        logger.info(f"Event generated: {event_name} with data {data}")
-        return event_name, data
-
-
-class EmergencyEvent(BaseEventFabric):
-    """
-    Event class triggered when an emergency condition is detected.
-    """
-    def __init__(self, message: str):
-        super().__init__()
-        self.message = message
-
-    def call(self, *args, **kwargs):
-        """
-        Execute when an emergency condition is detected.
-
-        :return: Tuple of (event_name, data_dict)
-        """
-        event_name = "EmergencyEvent"
-        data = {"message": self.message}
-        logger.info(f"Event generated: {event_name} with message {self.message}")
-        return event_name, data
-
 
 async def check_emergency_detection_function(request: Request):
     """
@@ -97,8 +55,8 @@ async def check_emergency_detection_function(request: Request):
 
         # Fetch sensor data and prepare it for the model
         sensor_data = fetch_all_sensor_data(
-            start_hours=FETCH_START_HOURS, 
-            interval_hours=FETCH_INTERVAL_HOURS
+            start_hours=START_HOURS_FOR_EMERGENCY_DETECTION, 
+            interval_hours=INTERVAL_HOURS_FOR_EMERGENCY_DETECTION
         )
         if not sensor_data:
             logger.warning("No sensor data retrieved from 'fetch_all_sensor_data'.")
@@ -135,21 +93,48 @@ async def check_emergency_detection_function(request: Request):
 # Instantiate events
 train_occupancy_model_event = TrainOccupancyModelEvent()
 check_emergency_event = CheckEmergencyEvent()
+train_motion_model_event = TrainMotionModelEvent()
+analyze_motion_event = AnalyzeMotionEvent()
 
-# Create periodic triggers
-periodic_trigger_train_model = PeriodicTrigger(
-    train_occupancy_model_event,
-    duration=TRAIN_MODEL_INTERVAL,
-    wait_time=TRAIN_MODEL_WAIT_TIME
-)
-logger.info("Periodic trigger for TrainOccupancyModelEvent configured.")
+# Define configurations for events and triggers
+events_and_triggers = [
+    {
+        "event_class": TrainOccupancyModelEvent,
+        "trigger_name": "Periodic trigger for TrainOccupancyModelEvent",
+        "interval": TRAIN_OCCUPANCY_MODEL_INTERVAL,
+        "wait_time": TRAIN_OCCUPANCY_MODEL_WAIT_TIME,
+    },
+    {
+        "event_class": CheckEmergencyEvent,
+        "trigger_name": "Periodic trigger for CheckEmergencyEvent",
+        "interval": CHECK_EMERGENCY_INTERVAL,
+        "wait_time": CHECK_EMERGENCY_WAIT_TIME,
+    },
+    {
+        "event_class": TrainMotionModelEvent,
+        "trigger_name": "Periodic trigger for TrainMotionModelEvent",
+        "interval": TRAIN_MOTION_MODEL_INTERVAL,
+        "wait_time": TRAIN_MOTION_MODEL_WAIT_TIME,
+    },
+    {
+        "event_class": AnalyzeMotionEvent,
+        "trigger_name": "Periodic trigger for AnalyzeMotionEvent",
+        "interval": ANALYSE_MOTION_INTERVAL,
+        "wait_time": ANALYSE_MOTION_WAIT_TIME,
+    },
+]
 
-periodic_trigger_check_emergency = PeriodicTrigger(
-    check_emergency_event,
-    duration=CHECK_EMERGENCY_INTERVAL,
-    wait_time=CHECK_EMERGENCY_WAIT_TIME
-)
-logger.info("Periodic trigger for CheckEmergencyEvent configured.")
+# Instantiate events and create periodic triggers
+triggers = []
+for trigger_config in events_and_triggers:
+    event_instance = trigger_config["event_class"]()
+    trigger = PeriodicTrigger(
+        event_instance,
+        duration=trigger_config["interval"],
+        wait_time=trigger_config["wait_time"]
+    )
+    triggers.append(trigger)
+    logger.info(f"{trigger_config['trigger_name']} configured.")
 
 # Initialize gateway
 app = LocalGateway()

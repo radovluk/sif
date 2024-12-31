@@ -48,3 +48,82 @@ class ExampleEventFabric(BaseEventFabric):
 
     def call(self, *args, **kwargs):
         return "GenEvent", None
+
+class TrainOccupancyModelEvent(BaseEventFabric):
+    """
+    Event class responsible for triggering an occupancy model retraining.
+    """
+    def call(self, *args, **kwargs):
+        """
+        Execute when the event is triggered.
+
+        :return: Tuple of (event_name, data_dict)
+        """
+        event_name = "TrainOccupancyModelEvent"
+        data = {"message": "Retraining the occupancy model"}
+        logger.info(f"Event generated: {event_name} with data {data}")
+        return event_name, data
+
+class CheckEmergencyEvent(BaseEventFabric):
+    """
+    Event class responsible for checking emergency conditions.
+    """
+    def call(self, *args, **kwargs):
+        """
+        Execute when the event is triggered.
+
+        :return: Tuple of (event_name, data_dict)
+        """
+        event_name = "CheckEmergencyEvent"
+        data = {"message": "Checking for emergencies"}
+        logger.info(f"Event generated: {event_name} with data {data}")
+        return event_name, data
+
+class EmergencyEvent(BaseEventFabric):
+    """
+    Event class triggered when an emergency condition is detected.
+    """
+    def __init__(self, message: str):
+        super().__init__()
+        self.message = message
+
+    def call(self, *args, **kwargs):
+        """
+        Execute when an emergency condition is detected.
+
+        :return: Tuple of (event_name, data_dict)
+        """
+        event_name = "EmergencyEvent"
+        data = {"message": self.message}
+        logger.info(f"Event generated: {event_name} with message {self.message}")
+        return event_name, data
+
+class TrainMotionModelEvent(BaseEventFabric):
+    """
+    Event class responsible for triggering an motion model retraining.
+    """
+    def call(self, *args, **kwargs):
+        """
+        Execute when the event is triggered.
+
+        :return: Tuple of (event_name, data_dict)
+        """
+        event_name = "TrainMotionModelEvent"
+        data = {"message": "Retraining the motion model"}
+        logger.info(f"Event generated: {event_name} with data {data}")
+        return event_name, data
+
+class AnalyzeMotionEvent(BaseEventFabric):
+    """
+    Event class responsible for triggering an motion model analysis.
+    """
+    def call(self, *args, **kwargs):
+        """
+        Execute when the event is triggered.
+
+        :return: Tuple of (event_name, data_dict)
+        """
+        event_name = "AnalyzeMotionEvent"
+        data = {"message": "Analysis of the motion model"}
+        logger.info(f"Event generated: {event_name} with data {data}")
+        return event_name, data
