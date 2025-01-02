@@ -1,7 +1,7 @@
 import os
 
-CURRENT_IP = "192.168.8.159" # Prague IP
-# CURRENT_IP = "192.168.81.143" # Munich IP home
+# CURRENT_IP = "192.168.8.159" # Prague IP
+CURRENT_IP = "192.168.81.143" # Munich IP home
 
 # How old data to use for retraining
 TRAINING_DATA_WINDOW_HOURS = 24 * 7 * 2

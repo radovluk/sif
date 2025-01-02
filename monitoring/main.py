@@ -1,6 +1,4 @@
 import logging
-import os
-
 from fastapi import Request
 
 from base import PeriodicTrigger, OneShotTrigger
@@ -8,13 +6,16 @@ from base.gateway import LocalGateway
 from base.homecare_hub_utils import send_info
 from base.influx_utils import fetch_all_sensor_data
 from base.minio_utils import load_model_from_minio
-from detection import detect_emergency, prepare_data_for_detection
+from detection import detect_emergency, prepare_data_for_detection, detect_burglary
 from base.event import (
     TrainOccupancyModelEvent,
     CheckEmergencyEvent,
     EmergencyEvent,
     TrainMotionModelEvent,
-    AnalyzeMotionEvent
+    AnalyzeMotionEvent,
+    TrainBurglaryModelEvent,
+    CheckBurglaryEvent,
+    BurglaryEvent
 )
 from config import (
     TRAIN_OCCUPANCY_MODEL_INTERVAL,
@@ -25,6 +26,10 @@ from config import (
     CHECK_EMERGENCY_WAIT_TIME,
     ANALYSE_MOTION_INTERVAL,
     ANALYSE_MOTION_WAIT_TIME,
+    TRAIN_BURGLARY_MODEL_INTERVAL,
+    TRAIN_BURLGARY_MODEL_WAIT_TIME,
+    CHECK_BURGLARY_INTERVAL,
+    CHECK_BURGLARY_WAIT_TIME,
     START_HOURS_FOR_EMERGENCY_DETECTION,
     INTERVAL_HOURS_FOR_EMERGENCY_DETECTION
 )
@@ -89,12 +94,37 @@ async def check_emergency_detection_function(request: Request):
         logger.error(f"Unexpected error in check_emergency_detection_function: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
+async def check_burglary_detection_function(request: Request):
+    """
+    Asynchronous function to check for burglaries based on incoming data.
+
+    :param request: FastAPI Request object containing JSON data.
+    :return: JSON response with the status of the operation.
+    """
+    logger.info("check_burglary_detection_function invoked.")
+    try:
+        data = await request.json()
+        logger.info(f"Received data: {data}")
+
+        # Detect burglary
+        burglary_detected, message = detect_burglary()
+
+        if burglary_detected:
+            logger.info(f"Burglary detected: {message}")
+            trigger = OneShotTrigger(BurglaryEvent(message))
+            trigger.call()
+        else:
+            logger.info("No burglary detected.")
+
+        return {"status": "success"}
 
 # Instantiate events
 train_occupancy_model_event = TrainOccupancyModelEvent()
 check_emergency_event = CheckEmergencyEvent()
 train_motion_model_event = TrainMotionModelEvent()
 analyze_motion_event = AnalyzeMotionEvent()
+train_burglary_model_event = TrainBurglaryModelEvent()
+check_burglary_event = CheckBurglaryEvent()
 
 # Define configurations for events and triggers
 events_and_triggers = [
@@ -122,6 +152,18 @@ events_and_triggers = [
         "interval": ANALYSE_MOTION_INTERVAL,
         "wait_time": ANALYSE_MOTION_WAIT_TIME,
     },
+    {
+        "event_class": TrainBurglaryModelEvent,
+        "trigger_name": "Periodic trigger for TrainBurglaryModelEvent",
+        "interval": TRAIN_BURGLARY_MODEL_INTERVAL,
+        "wait_time": TRAIN_BURGLARY_MODEL_WAIT_TIME,
+    },
+    {
+        "event_class": CheckBurglaryEvent,
+        "trigger_name": "Periodic trigger for CheckBurglaryEvent",
+        "interval": CHECK_BURGLARY_INTERVAL,
+        "wait_time": CHECK_BURGLARY_WAIT_TIME,
+    },
 ]
 
 # Instantiate events and create periodic triggers
@@ -148,3 +190,12 @@ app.deploy(
     method="POST"
 )
 logger.info("check_emergency_detection_function deployed.")
+
+# Deploy the burglary detection function
+app.deploy(
+    check_burglary_detection_function,
+    name="check_burglary_detection_function",
+    evts="CheckBurglaryEvent",
+    method="POST"
+)
+logger.info("check_burglary_detection_function deployed.")

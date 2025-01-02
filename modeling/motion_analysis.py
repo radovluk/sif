@@ -1,6 +1,8 @@
 import logging
 import pandas as pd
 
+base_logger = logging.getLogger(__name__)
+
 def train_motion_model():
     """
     Train motion model.

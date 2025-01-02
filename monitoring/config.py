@@ -1,7 +1,7 @@
 import os
 
-CURRENT_IP = "192.168.8.159" # Prague IP
-# CURRENT_IP = "192.168.81.143" # Munich IP home
+# CURRENT_IP = "192.168.8.159" # Prague IP
+CURRENT_IP = "192.168.81.143" # Munich IP home
 
 TRAIN_OCCUPANCY_MODEL_INTERVAL = "12h"  # The model will be retrained every 6 hours
 TRAIN_OCCUPANCY_MODEL_WAIT_TIME = "30s"  # Wait 10 minutes before starting the first retraining
@@ -12,8 +12,14 @@ TRAIN_MOTION_MODEL_WAIT_TIME = "15s"
 ANALYSE_MOTION_INTERVAL = "3m"
 ANALYSE_MOTION_WAIT_TIME = "20s"
 
-CHECK_EMERGENCY_INTERVAL = "10m"  # Check for emergencies every 15 minutes
-CHECK_EMERGENCY_WAIT_TIME = "1m"  # Wait 1 minute before starting the first emergency check
+TRAIN_BURGLARY_MODEL_INTERVAL = "6m"
+TRAIN_BURLGARY_MODEL_WAIT_TIME = "30s"
+
+CHECK_BURGLARY_INTERVAL = "10m"
+CHECK_BURGLARY_WAIT_TIME = "40s"
+
+CHECK_EMERGENCY_INTERVAL = "10m"
+CHECK_EMERGENCY_WAIT_TIME = "50s"
 
 START_HOURS_FOR_EMERGENCY_DETECTION = 24 * 7 * 4 # Start of the interval for fetching data used for emergency detection
 INTERVAL_HOURS_FOR_EMERGENCY_DETECTION = 24 * 7 * 4 # Duration of the interval for fetching data used for emergency detection

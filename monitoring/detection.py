@@ -126,3 +126,27 @@ def detect_emergency(fetched_data: pd.DataFrame, room_stats: pd.DataFrame, thres
         else:
             return False, (f"No emergency in {room}: duration={current_duration} is within "
                            f"mean ± {threshold} * std = ({lower_bound}, {upper_bound})")
+
+def detect_burglary() -> Tuple[bool, str]:
+    """
+    Detects an burglary based on fetched sensor data and room statistics.
+    
+    :return: A tuple (emergency_detected, message).
+
+    # TODO implement this function:
+
+    Final Assignment
+
+    Implement an additional use case for the Digital Twin. 
+    One possibility is a path analysis. 
+
+    1. Determine paths taken in the apartment. A path is the sequence of rooms visited during an hour. For example, you have the following events: 
+    7:58 kitchen, 8:05 bathroom, 8:20 living room, 8:30 kitchen, 9:10 Living room. 
+    This will a path kitchen->bathroom->living room->kitchen from 8:00 to 09:00 and one Kitchen->living room from 09:00-10:00. 
+    You can also use another definition of path, e.g., that it ends if you stay longer than 15 minutes in a room. 
+
+    2. Implement an analysis for behavioral changes based on the paths and visualize the results. 
+    Alternative: You develop your own use case, which need not be related to Senior Homecare but is based on the collected room events. You could, for example, use a ML model to predict the next room to be visited and report anomalies in case it is different. 
+    """
+    base_logger.info(f"Function detect_burglary() called.")
+    return True, "Burlgary detected, disclaimer: Not implemented yet"

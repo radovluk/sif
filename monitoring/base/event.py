@@ -1,8 +1,11 @@
 import os
 import urllib3
+import logging
 
 from abc import ABC, abstractmethod
 from typing import Tuple, Any
+
+base_logger = logging.getLogger(__name__)
 
 
 class BaseEventFabric(ABC):
@@ -61,7 +64,7 @@ class TrainOccupancyModelEvent(BaseEventFabric):
         """
         event_name = "TrainOccupancyModelEvent"
         data = {"message": "Retraining the occupancy model"}
-        logger.info(f"Event generated: {event_name} with data {data}")
+        base_logger.info(f"Event generated: {event_name} with data {data}")
         return event_name, data
 
 class CheckEmergencyEvent(BaseEventFabric):
@@ -76,7 +79,7 @@ class CheckEmergencyEvent(BaseEventFabric):
         """
         event_name = "CheckEmergencyEvent"
         data = {"message": "Checking for emergencies"}
-        logger.info(f"Event generated: {event_name} with data {data}")
+        base_logger.info(f"Event generated: {event_name} with data {data}")
         return event_name, data
 
 class EmergencyEvent(BaseEventFabric):
@@ -95,7 +98,7 @@ class EmergencyEvent(BaseEventFabric):
         """
         event_name = "EmergencyEvent"
         data = {"message": self.message}
-        logger.info(f"Event generated: {event_name} with message {self.message}")
+        base_logger.info(f"Event generated: {event_name} with message {self.message}")
         return event_name, data
 
 class TrainMotionModelEvent(BaseEventFabric):
@@ -110,7 +113,7 @@ class TrainMotionModelEvent(BaseEventFabric):
         """
         event_name = "TrainMotionModelEvent"
         data = {"message": "Retraining the motion model"}
-        logger.info(f"Event generated: {event_name} with data {data}")
+        base_logger.info(f"Event generated: {event_name} with data {data}")
         return event_name, data
 
 class AnalyzeMotionEvent(BaseEventFabric):
@@ -125,5 +128,54 @@ class AnalyzeMotionEvent(BaseEventFabric):
         """
         event_name = "AnalyzeMotionEvent"
         data = {"message": "Analysis of the motion model"}
-        logger.info(f"Event generated: {event_name} with data {data}")
+        base_logger.info(f"Event generated: {event_name} with data {data}")
+        return event_name, data
+
+class TrainBurglaryModelEvent(BaseEventFabric):
+    """
+    Event class responsible for triggering an burglary model retraining.
+    """
+    def call(self, *args, **kwargs):
+        """
+        Execute when the event is triggered.
+
+        :return: Tuple of (event_name, data_dict)
+        """
+        event_name = "TrainBurglaryModelEvent"
+        data = {"message": "Retraining the burglary model"}
+        base_logger.info(f"Event generated: {event_name} with data {data}")
+        return event_name, data
+
+class CheckBurglaryEvent(BaseEventFabric):
+    """
+    Event class responsible for checking burglary conditions.
+    """
+    def call(self, *args, **kwargs):
+        """
+        Execute when the event is triggered.
+
+        :return: Tuple of (event_name, data_dict)
+        """
+        event_name = "CheckBurglaryEvent"
+        data = {"message": "Checking for burglary"}
+        base_logger.info(f"Event generated: {event_name} with data {data}")
+        return event_name, data
+
+class BurglaryEvent(BaseEventFabric):
+    """
+    Event class triggered when an burglary condition is detected.
+    """
+    def __init__(self, message: str):
+        super().__init__()
+        self.message = message
+
+    def call(self, *args, **kwargs):
+        """
+        Execute when an burglary condition is detected.
+
+        :return: Tuple of (event_name, data_dict)
+        """
+        event_name = "BurglaryEvent"
+        data = {"message": self.message}
+        base_logger.info(f"Event generated: {event_name} with message {self.message}")
         return event_name, data
