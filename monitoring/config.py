@@ -3,8 +3,8 @@ import os
 # CURRENT_IP = "192.168.8.159" # Prague IP
 CURRENT_IP = "192.168.81.143" # Munich IP home
 
-TRAIN_OCCUPANCY_MODEL_INTERVAL = "12h"  # The model will be retrained every 6 hours
-TRAIN_OCCUPANCY_MODEL_WAIT_TIME = "30s"  # Wait 10 minutes before starting the first retraining
+TRAIN_OCCUPANCY_MODEL_INTERVAL = "12h"  # The model will be retrained every XX hours
+TRAIN_OCCUPANCY_MODEL_WAIT_TIME = "30s"  # Wait XX minutes before starting the first retraining
 
 TRAIN_MOTION_MODEL_INTERVAL = "5m"
 TRAIN_MOTION_MODEL_WAIT_TIME = "15s"

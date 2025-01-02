@@ -117,6 +117,15 @@ async def check_burglary_detection_function(request: Request):
             logger.info("No burglary detected.")
 
         return {"status": "success"}
+    except ValueError as ve:
+        logger.error(f"ValueError in check_burglary_detection_function: {ve}", exc_info=True)
+        return {"status": "error", "message": str(ve)}
+    except RuntimeError as re:
+        logger.error(f"RuntimeError in check_burglary_detection_function: {re}", exc_info=True)
+        return {"status": "error", "message": str(re)}
+    except Exception as e:
+        logger.error(f"Unexpected error in check_burglary_detection_function: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
 
 # Instantiate events
 train_occupancy_model_event = TrainOccupancyModelEvent()
