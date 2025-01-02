@@ -34,7 +34,7 @@ async def create_occupancy_model_function(request: Request):
     room_stats = train_occupancy_model(sensor_data_df)
 
     # Save model to MinIO
-    save_model_to_minio(room_stats)
+    save_model_to_minio(room_stats, "occupancy")
 
     # Send info
     send_info("New occupancy model was successfully trained!", "New occupancy model was trained", 1)

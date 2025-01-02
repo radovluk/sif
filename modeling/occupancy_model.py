@@ -4,20 +4,21 @@ from sklearn.preprocessing import LabelEncoder
 
 base_logger = logging.getLogger(__name__)
 
+
 def map_sensor_to_room(sensor_name: str) -> str:
     """
     Map sensor names to a 'room' or event label.
+
+    :param sensor_name: The name of the sensor.
+    :return: The corresponding room or event label.
     """
-    if 'bathroom_PIR' in sensor_name:
-        return 'bathroom'
-    elif 'kitchen_PIR' in sensor_name:
-        return 'kitchen'
-    elif 'livingroom_PIR' in sensor_name:
-        return 'livingroom'
-    elif 'livingroom_magnetic_switch' in sensor_name:
-        return 'livingroom_door_open'
-    else:
-        return 'unknown_room'
+    sensor_mapping = {
+        'bathroom_PIR': 'bathroom',
+        'kitchen_PIR': 'kitchen',
+        'livingroom_PIR': 'livingroom',
+        'livingroom_magnetic_switch': 'livingroom_door_open'
+    }
+    return sensor_mapping.get(sensor_name, 'unknown_room')
 
 
 def prepare_data_for_occupancy_model(sensor_data: list) -> pd.DataFrame:
@@ -82,6 +83,9 @@ def calculate_times_in_each_room(df: pd.DataFrame) -> pd.DataFrame:
     # 4) Compute durations
     duration_df['duration'] = duration_df['end_time'] - duration_df['start_time']
     duration_df['duration_seconds'] = duration_df['duration'].dt.total_seconds()
+
+    # 5) Exclude all the door-opening events
+    duration_df = duration_df[duration_df['room'] != 'livingroom_door_open']
 
     return duration_df
 

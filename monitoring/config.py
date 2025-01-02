@@ -20,6 +20,7 @@ CHECK_BURGLARY_WAIT_TIME = "40s"
 
 CHECK_EMERGENCY_INTERVAL = "10m"
 CHECK_EMERGENCY_WAIT_TIME = "50s"
+TRESHOLD_FOR_EMERGENCY_DETECTION = 3 # Number of standard deviations from the mean to trigger an emergency.
 
 START_HOURS_FOR_EMERGENCY_DETECTION = 24 * 7 * 4 # Start of the interval for fetching data used for emergency detection
 INTERVAL_HOURS_FOR_EMERGENCY_DETECTION = 24 * 7 * 4 # Duration of the interval for fetching data used for emergency detection

@@ -4,9 +4,7 @@ from fastapi import Request
 from base import PeriodicTrigger, OneShotTrigger
 from base.gateway import LocalGateway
 from base.homecare_hub_utils import send_info
-from base.influx_utils import fetch_all_sensor_data
-from base.minio_utils import load_model_from_minio
-from detection import detect_emergency, prepare_data_for_detection, detect_burglary
+from detection import emergency_detection_workflow, detect_burglary
 from base.event import (
     TrainOccupancyModelEvent,
     CheckEmergencyEvent,
@@ -24,14 +22,13 @@ from config import (
     TRAIN_MOTION_MODEL_WAIT_TIME,
     CHECK_EMERGENCY_INTERVAL,
     CHECK_EMERGENCY_WAIT_TIME,
+    TRESHOLD_FOR_EMERGENCY_DETECTION,
     ANALYSE_MOTION_INTERVAL,
     ANALYSE_MOTION_WAIT_TIME,
     TRAIN_BURGLARY_MODEL_INTERVAL,
     TRAIN_BURGLARY_MODEL_WAIT_TIME,
     CHECK_BURGLARY_INTERVAL,
-    CHECK_BURGLARY_WAIT_TIME,
-    START_HOURS_FOR_EMERGENCY_DETECTION,
-    INTERVAL_HOURS_FOR_EMERGENCY_DETECTION
+    CHECK_BURGLARY_WAIT_TIME
 )
 
 # Configure logging
@@ -53,28 +50,8 @@ async def check_emergency_detection_function(request: Request):
         data = await request.json()
         logger.info(f"Received data: {data}")
 
-        # Load room stats (model) from MinIO
-        room_stats = load_model_from_minio()
-        if room_stats is None or room_stats.empty:
-            raise RuntimeError("Failed to load model from MinIO.")
-
-        # Fetch sensor data and prepare it for the model
-        sensor_data = fetch_all_sensor_data(
-            start_hours=START_HOURS_FOR_EMERGENCY_DETECTION, 
-            interval_hours=INTERVAL_HOURS_FOR_EMERGENCY_DETECTION
-        )
-        if not sensor_data:
-            logger.warning("No sensor data retrieved from 'fetch_all_sensor_data'.")
-            return {"status": "no_data", "message": "No sensor data retrieved."}
-
-        prepared_df = prepare_data_for_detection(sensor_data)
-
-        if prepared_df.empty:
-            logger.warning("Data preparation resulted in an empty DataFrame.")
-            return {"status": "no_data", "message": "Data preparation resulted in an empty DataFrame."}
-
         # Detect potential emergencies
-        emergency_detected, message = detect_emergency(prepared_df, room_stats)
+        emergency_detected, message = emergency_detection_workflow(threshold=TRESHOLD_FOR_EMERGENCY_DETECTION)
         if emergency_detected:
             logger.info(f"Emergency detected: {message}")
             trigger = OneShotTrigger(EmergencyEvent(message))
