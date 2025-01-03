@@ -10,3 +10,4 @@ scikit-learn
 matplotlib
 networkx
 seaborn
+uvicorn==0.18.2

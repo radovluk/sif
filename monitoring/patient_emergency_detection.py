@@ -1,5 +1,5 @@
 import logging
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 from datetime import datetime, timedelta
 from io import BytesIO, StringIO
 
@@ -196,7 +196,7 @@ def retrieve_patient_location(sensor_data: List[dict]) -> Tuple[str, float]:
     return room, duration
 
 
-def retrieve_room_stats(model_type: str = "occupancy") -> Optional[pd.DataFrame]:
+def retrieve_room_stats(model_type: str = "occupancy"):
     """
     Retrieve room statistics (mean and standard deviation) for the specified model type.
 

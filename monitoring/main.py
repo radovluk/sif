@@ -7,6 +7,7 @@ from base.homecare_hub_utils import send_info
 from patient_emergency_detection import emergency_detection_workflow
 from burglary_detection import detect_burglary
 from motion_analysis import analyse_motion_patterns
+
 from base.event import (
     TrainOccupancyModelEvent,
     CheckEmergencyEvent,
