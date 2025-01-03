@@ -8,7 +8,7 @@ from base.minio_utils import save_model_to_minio
 from base.homecare_hub_utils import send_info, send_todo
 from occupancy_model import prepare_data_for_occupancy_model, train_occupancy_model
 from burglary_model import train_burglary_model
-from motion_analysis import train_motion_model, analyse_motion_patterns
+from motion_model import train_motion_model
 from config import TRAINING_DATA_WINDOW_HOURS
 
 # Configure logging
@@ -46,20 +46,14 @@ async def create_motion_model_function(request: Request):
     data = await request.json()
     base_logger.info(f"Received data: {data}")
 
-    # TODO Complete this training function
-    train_motion_model()
+    # Train the model
+    motion_model = train_motion_model(start_hours=24*7, interval_hours=24*7, time_threshold_seconds=1800)
+    
+    # Save model to MinIO
+    save_model_to_minio(room_stats, "motion")
+
+    # Send info
     send_info("New motion model was successfully trained!", "New motion model was deployed", 1)
-
-    return {"status": "success"}
-
-async def motion_analysis_function(request: Request):
-    base_logger.info("Function motion_analysis_function called.")
-    data = await request.json()
-    base_logger.info(f"Received data: {data}")
-
-    # TODO Complete this motion analysis function
-    analyse_motion_patterns()
-    send_info("New motion analysis was successfully deployed!", "New motion analysis was deployed", 1)
 
     return {"status": "success"}
 
@@ -88,12 +82,6 @@ functions_to_deploy = [
         "func": create_motion_model_function,
         "name": "create_motion_model_function",
         "evts": "TrainMotionModelEvent",
-        "method": "POST"
-    },
-    {
-        "func": motion_analysis_function,
-        "name": "motion_analysis_function",
-        "evts": "AnalyzeMotionEvent",
         "method": "POST"
     },
     {

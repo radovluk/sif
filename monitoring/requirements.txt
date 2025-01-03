@@ -7,3 +7,7 @@ pandas
 minio
 influxdb_client
 scikit-learn
+matplotlib
+networkx
+seaborn
+datetime

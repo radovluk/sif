@@ -5,6 +5,7 @@ from base import PeriodicTrigger, OneShotTrigger
 from base.gateway import LocalGateway
 from base.homecare_hub_utils import send_info
 from detection import emergency_detection_workflow, detect_burglary
+from motion_analysis import analyse_motion_patterns
 from base.event import (
     TrainOccupancyModelEvent,
     CheckEmergencyEvent,
@@ -104,6 +105,17 @@ async def check_burglary_detection_function(request: Request):
         logger.error(f"Unexpected error in check_burglary_detection_function: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
+async def motion_analysis_function(request: Request):
+    base_logger.info("Function motion_analysis_function called.")
+    data = await request.json()
+    base_logger.info(f"Received data: {data}")
+
+    # TODO Complete this motion analysis function
+    analyse_motion_patterns()
+    send_info("New motion analysis was successfully deployed!", "New motion analysis was deployed", 1)
+
+    return {"status": "success"}
+
 # Instantiate events
 train_occupancy_model_event = TrainOccupancyModelEvent()
 check_emergency_event = CheckEmergencyEvent()
@@ -164,24 +176,34 @@ for trigger_config in events_and_triggers:
     triggers.append(trigger)
     logger.info(f"{trigger_config['trigger_name']} configured.")
 
-# Initialize gateway
-app = LocalGateway()
-logger.info("Gateway initialized.")
+# List of functions to deploy
+deployments = [
+    {
+        "func": check_emergency_detection_function,
+        "name": "check_emergency_detection_function",
+        "evts": "CheckEmergencyEvent",
+        "method": "POST"
+    },
+    {
+        "func": check_burglary_detection_function,
+        "name": "check_burglary_detection_function",
+        "evts": "CheckBurglaryEvent",
+        "method": "POST"
+    },
+    {
+        "func": motion_analysis_function,
+        "name": "motion_analysis_function",
+        "evts": "AnalyzeMotionEvent",
+        "method": "POST"
+    }
+]
 
-# Deploy the emergency detection function
-app.deploy(
-    check_emergency_detection_function,
-    name="check_emergency_detection_function",
-    evts="CheckEmergencyEvent",
-    method="POST"
-)
-logger.info("check_emergency_detection_function deployed.")
-
-# Deploy the burglary detection function
-app.deploy(
-    check_burglary_detection_function,
-    name="check_burglary_detection_function",
-    evts="CheckBurglaryEvent",
-    method="POST"
-)
-logger.info("check_burglary_detection_function deployed.")
+# Deploy all functions
+for func_config in functions_to_deploy:
+    app.deploy(
+        func_config["func"],
+        name=func_config["name"],
+        evts=func_config["evts"],
+        method=func_config["method"]
+    )
+    base_logger.info(f"{func_config['name']} deployed.")
