@@ -10,18 +10,18 @@ base_logger.info("Gateway initiated.")
 
 async def create_emergency_notification_function(request: Request):
     base_logger.info("Function create emergency notification called.")
-    mgs = await request.json()
-    base_logger.info(f"Function create_emergency_notification_function received data: {mgs}")
+    msg = await request.json()
+    base_logger.info(f"Function create_emergency_notification_function received data: {msg}")
     base_logger.info("Now I will send the emergency Notification.")
-    send_todo("🚨 Patient Emergency! 🚨", mgs, 2)
+    send_todo("🚨 Patient Emergency! 🚨", msg, 2)
     return {"status": "success"}
 
 async def create_burglary_notification_function(request: Request):
     base_logger.info("Function create burglary notification called.")
-    mgs = await request.json()
-    base_logger.info(f"Function create_burglary_notification_function received data: {mgs}")
+    msg = await request.json()
+    base_logger.info(f"Function create_burglary_notification_function received data: {msg}")
     base_logger.info("Now I will send the burglary Notification.")
-    send_todo("🏠🚔 Burglary Alert! 🏠🔐", mgs, 2)
+    send_todo("🏠🚔 Burglary Alert! 🏠🔐", msg, 2)
     return {"status": "success"}
 
 app.deploy(

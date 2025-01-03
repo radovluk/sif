@@ -7,9 +7,5 @@ influxdb_client
 pandas
 scikit-learn
 minio
-datetime
-base64
-pickle
-typing
 seaborn
 matplotlib
