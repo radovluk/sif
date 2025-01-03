@@ -11,3 +11,5 @@ matplotlib
 networkx
 seaborn
 datetime
+typing
+json

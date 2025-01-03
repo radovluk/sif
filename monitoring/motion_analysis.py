@@ -6,6 +6,8 @@ from matplotlib.lines import Line2D
 import seaborn as sns
 import logging
 from base.minio_utils import load_model_from_minio
+from base.homecare_hub_utils import send_info
+import json
 
 # ------------------------------
 # Logging Configuration
@@ -387,13 +389,107 @@ def create_separate_heat_maps(transition_df):
     plt.tight_layout()
     plt.show()
 
+def format_duration(seconds: float) -> str:
+    """
+    Formats a duration from seconds to HH:MM:SS format.
+
+    :param seconds: Duration in seconds.
+    :return: Formatted duration string.
+    """
+    hours, remainder = divmod(int(seconds), 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours}h {minutes}m {secs}s"
+
+def dataframe_to_text(df: pd.DataFrame) -> str:
+    """
+    Converts a DataFrame to a formatted string with emojis for better readability.
+
+    :param df: The DataFrame to convert.
+    :return: Formatted string representation of the DataFrame.
+    """
+    if df.empty:
+        return "📉 No data available for this section.\n\n"
+    else:
+        return f"```{df.to_string(index=False)}```\n\n"
+
+
 def analyse_motion_patterns():
-    old_model = load_model_from_minio("motion", 2)
-    new_model = load_model_from_minio("motion", 1)
-    base_logger.info(summary_of_sleep_time_and_time_outside(old_model))
-    base_logger.info(summary_of_sleep_time_and_time_outside(new_model))
-    base_logger.info(count_daily_visits(new_model, transition_state='bathroom'))
-    base_logger.info(detect_wake_up_times(new_model))
+    """
+    Analyzes motion patterns from old and new motion models, formats the results into a readable message,
+    and sends the information to the VIZ component.
+    """
+    try:
+        # Load old and new models
+        base_logger.info("🔄 Loading old and new motion models from MinIO...")
+        old_model = load_model_from_minio("motion", 2)
+        new_model = load_model_from_minio("motion", 1)
+        base_logger.info("✅ Models loaded successfully.\n")
+    except Exception as e:
+        base_logger.error(f"❌ Failed to load models from MinIO: {e}")
+        return
+
+    # Initialize the message with a header
+    message = (
+        f"📊 **📈 Motion Patterns Analysis Report 📉📊**\n\n"
+        f"📅 **Report Date:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
+    )
+
+    # Function to perform analysis on a given model
+    def analyze_model(model, model_name):
+        base_logger.info(f"🔍 Performing analyses on the {model_name} model...")
+        model_message = f"### 🕰️ **{model_name} Motion Model** 🕰️\n\n"
+
+        # 1. Summary of Sleep Time and Time Outside
+        sleep_summary = summary_of_sleep_time_and_time_outside(model)
+        model_message += f"#### 🛌 Sleep Time and 🌳 Time Outside Summary\n\n"
+        model_message += dataframe_to_text(sleep_summary)
+
+        # 2. Daily Visits Counts
+        visits_states = ['bathroom', 'kitchen', 'livingroombedarea', 'livingroomdoor']
+        for state in visits_states:
+            daily_visits = count_daily_visits(model, transition_state=state)
+            model_message += f"#### 🚽 **Daily Visits to {state.capitalize()}**\n\n"
+            model_message += dataframe_to_text(daily_visits)
+
+        # 3. Wake-Up Times
+        wake_up_times = detect_wake_up_times(model)
+        model_message += f"#### 🌅 **Wake-Up Times**\n\n"
+        model_message += dataframe_to_text(wake_up_times)
+
+        # 4. Went-To-Sleep Times
+        went_to_sleep_times = detect_went_to_sleep_times(model)
+        model_message += f"#### 🌙 **Went-To-Sleep Times**\n\n"
+        model_message += dataframe_to_text(went_to_sleep_times)
+
+        # 5. Transition Counts
+        transition_counts = model.groupby(['from', 'to']).size().reset_index(name='count')
+        model_message += f"#### 🔄 **Transition Counts Between Areas**\n\n"
+        model_message += dataframe_to_text(transition_counts)
+
+        # 6. Transition Matrix
+        transition_matrix = model.groupby(['from', 'to']).size().unstack(fill_value=0)
+        model_message += f"#### 📊 **Transition Matrix**\n\n"
+        model_message += f"```{transition_matrix.to_string()}```\n\n"
+
+        # Append the model analysis to the main message
+        return model_message
+
+    # Analyze old model
+    old_model_message = analyze_model(old_model, "Old")
+    message += old_model_message
+
+    # Analyze new model
+    new_model_message = analyze_model(new_model, "New")
+    message += new_model_message
+
+    # Send the compiled message
+    try:
+        send_info("🚶 Motion Patterns Analysis Report 🚶", message, level=1)
+        base_logger.info("📤 Motion Patterns Analysis Report sent successfully.")
+        return message
+    except Exception as e:
+        base_logger.error(f"❌ Failed to send Motion Patterns Analysis Report: {e}")
+        return message 
 
 
 

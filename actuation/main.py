@@ -13,7 +13,7 @@ async def create_emergency_notification_function(request: Request):
     mgs = await request.json()
     base_logger.info(f"Function create_emergency_notification_function received data: {mgs}")
     base_logger.info("Now I will send the emergency Notification.")
-    send_todo("Emergency event created.", mgs, 2)
+    send_todo("🚨 Patient Emergency! 🚨", mgs, 2)
     return {"status": "success"}
 
 async def create_burglary_notification_function(request: Request):

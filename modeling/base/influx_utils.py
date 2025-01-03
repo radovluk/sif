@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 from influxdb_client import InfluxDBClient
 
@@ -140,3 +140,52 @@ def fetch_all_sensor_data(start_hours: int = 24, interval_hours: int = 6) -> Lis
     all_sensor_data.extend(fetch_data_from_buckets(PIR_BUCKETS, "PIR", ["roomID"], start_hours, interval_hours))
     all_sensor_data.extend(fetch_data_from_buckets(MAGNETIC_SWITCH_BUCKETS, "MagneticSwitch", ["roomID"], start_hours, interval_hours))
     return all_sensor_data
+
+def delete_last_x_hours(bucket: str, x_hours: int):
+    """
+    Delete items from the specified InfluxDB bucket within the last `x_hours`.
+
+    :param bucket: The name of the bucket from which to delete data.
+    :param x_hours: Number of hours in the past to start the deletion range.
+    :return: True if deletion was successful, False otherwise.
+    """
+    try:
+        with InfluxDBClient(
+            url=INFLUX_TOKEN,
+            org=INFLUX_ORG,
+            username=INFLUX_USER,
+            password=INFLUX_PASS,
+            verify_ssl=False
+        ) as client:
+            delete_api: DeleteApi = client.delete_api()
+
+            # Define the time range for deletion (from now - x_hours to now)
+            now = datetime.utcnow().replace(tzinfo=timezone.utc)
+            start_time = now - timedelta(hours=x_hours)
+
+            # Format times in RFC3339Nano
+            # Ensure that the format ends with 'Z' to indicate UTC timezone
+            start = start_time.isoformat(timespec='microseconds').replace('+00:00', 'Z')
+            stop = now.isoformat(timespec='microseconds').replace('+00:00', 'Z')
+
+            # Predicate to match all data within the time range
+            predicate = '_measurement != ""'  # Adjust if you need to target specific measurements
+
+            base_logger.info(f"Initiating deletion of items in bucket: {bucket} from {start} to {stop}")
+            base_logger.debug(f"Deletion predicate: {predicate}")
+
+            # Perform the deletion
+            delete_api.delete(
+                start=start,
+                stop=stop,
+                predicate=predicate,
+                bucket=bucket,
+                org=INFLUX_ORG
+            )
+
+            base_logger.info(f"Successfully deleted items from the last {x_hours} hours in bucket: {bucket}")
+            return True
+
+    except Exception as e:
+        base_logger.error(f"Error deleting items from bucket '{bucket}': {e}")
+        return False

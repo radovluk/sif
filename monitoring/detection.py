@@ -236,20 +236,20 @@ def detect_emergency(room: str, duration: float, stats: pd.Series, threshold: in
         # If std is zero, any deviation from mean is unusual
         if duration != mean:
             emergency_message = (
-                f"🚨 Emergency Alert 🚨\n"
-                f"Room: {room}\n"
-                f"Patient has spent {format_duration(duration)} here.\n"
-                f"Expected duration (mean): {format_duration(mean)}\n"
-                f"Standard deviation (std): {format_duration(std)}\n"
+                f"🚨 Emergency Alert! 🚨\n "
+                f"Room: {room}.\n "
+                f"Patient has spent {format_duration(duration)} here.\n "
+                f"Expected duration (mean): {format_duration(mean)},\n "
+                f"Standard deviation (std): {format_duration(std)},\n "
                 f"Duration is outside the expected value with no variability allowed."
             )
             base_logger.warning(emergency_message)
             return True, emergency_message
         else:
             no_emergency_message = (
-                f"✅ All is well! ✅\n"
-                f"Patient is currently in {room} for {format_duration(duration)}.\n"
-                f"No emergency detected.\n"
+                f"✅ All is well! ✅\n "
+                f"Patient is currently in {room} for {format_duration(duration)}.\n "
+                f"No emergency detected.\n "
                 f"Expected duration matches the recorded duration: {format_duration(mean)}."
             )
             base_logger.info(no_emergency_message)
@@ -265,24 +265,24 @@ def detect_emergency(room: str, duration: float, stats: pd.Series, threshold: in
 
         if duration < lower_bound or duration > upper_bound:
             emergency_message = (
-                f"🚨 Emergency Alert 🚨\n"
-                f"Room: {room}\n"
-                f"Patient has spent {format_duration(duration)} here.\n"
-                f"Expected duration (mean): {format_duration(mean)}\n"
-                f"Standard deviation (std): {format_duration(std)}\n"
-                f"Threshold used: {threshold}\n"
-                f"Allowed duration range: {format_duration(lower_bound)} - {format_duration(upper_bound)}\n"
+                f"🚨 Emergency Alert! 🚨\n "
+                f"Room: {room},\n "
+                f"Patient has spent {format_duration(duration)} here.\n "
+                f"Expected duration (mean): {format_duration(mean)},\n "
+                f"Standard deviation (std): {format_duration(std)},\n "
+                f"Threshold used: {threshold},\n "
+                f"Allowed duration range: {format_duration(lower_bound)} - {format_duration(upper_bound)},\n"
                 f"Duration is outside the allowed range!"
             )
             base_logger.warning(emergency_message)
             return True, emergency_message
         else:
             no_emergency_message = (
-                f"✅ All is well! ✅\n"
-                f"Patient is currently in {room} for {format_duration(duration)}.\n"
-                f"No emergency detected.\n"
-                f"Expected duration (mean): {format_duration(mean)}\n"
-                f"Standard deviation (std): {format_duration(std)}\n"
+                f"✅ All is well! ✅\n "
+                f"Patient is currently in {room} for {format_duration(duration)}.\n "
+                f"No emergency detected.\n "
+                f"Expected duration (mean): {format_duration(mean)},\n "
+                f"Standard deviation (std): {format_duration(std)},\n "
                 f"Allowed duration range: {format_duration(lower_bound)} - {format_duration(upper_bound)}."
             )
             base_logger.info(no_emergency_message)

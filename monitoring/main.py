@@ -177,7 +177,7 @@ for trigger_config in events_and_triggers:
     logger.info(f"{trigger_config['trigger_name']} configured.")
 
 # List of functions to deploy
-deployments = [
+functions_to_deploy = [
     {
         "func": check_emergency_detection_function,
         "name": "check_emergency_detection_function",
@@ -197,6 +197,10 @@ deployments = [
         "method": "POST"
     }
 ]
+
+# Initialize gateway
+app = LocalGateway()
+logger.info("Gateway initialized.")
 
 # Deploy all functions
 for func_config in functions_to_deploy:
