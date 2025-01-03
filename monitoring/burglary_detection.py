@@ -1,5 +1,5 @@
-from motion_model import train_motion_model
 from base.minio_utils import load_model_from_minio, save_model_to_minio
+from motion_model import train_motion_model
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import IsolationForest
@@ -221,28 +221,86 @@ class BurglaryDetector:
 
         print(f"Model version {version} loaded from MinIO successfully.")
 
-def train_burglary_model(start_hours, interval_hours, time_threshold_seconds):
+def create_burglary_message(detection_df: pd.DataFrame, is_burglary: bool):
     """
-    Trains the BurglaryDetector model using motion data and saves the trained model to MinIO.
+    Generates a formatted message based on burglary detection results.
+    
+    Parameters:
+    - detection_df (pd.DataFrame): DataFrame containing detection results with columns:
+        ['from', 'to', 'leave_time', 'enter_time', 'anomaly_label']
+    - is_burglary (bool): Flag indicating if any anomalies were detected.
+    
+    Returns:
+    - Optional[str]: Formatted message string or None if no message is generated.
+    """
+    if is_burglary:
+        # Extract anomalies
+        anomalies = detection_df[detection_df['anomaly_label'] == 'Anomaly']
+        if anomalies.empty:
+            base_logger.warning("is_burglary is True but no anomalies found in the DataFrame.")
+            return None
+        
+        # Initialize message components
+        message_header = "🚔 **Burglary Alert!** 🚔\n"
+        message_body = "Potential burglary detected with the following details:\n\n"
+        
+        # Iterate through each anomaly to build the message
+        for idx, row in anomalies.iterrows():
+            from_room = row['from']
+            to_room = row['to']
+            leave_time = row['leave_time']
+            enter_time = row['enter_time']
+            
+            # Format times
+            leave_time_str = pd.to_datetime(leave_time).strftime('%Y-%m-%d %H:%M:%S')
+            enter_time_str = pd.to_datetime(enter_time).strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Construct transition description
+            transition_desc = (
+                f"🔹 **From:** {from_room} ➡️ **To:** {to_room}\n"
+                f"🔸 **Leave Time:** {leave_time_str}\n"
+                f"🔸 **Enter Time:** {enter_time_str}\n\n"
+            )
+            message_body += transition_desc
+        
+        # Add concluding statement
+        message_footer = "⚠️ Please check the premises immediately. ⚠️"
+        
+        # Combine all parts
+        full_message = message_header + message_body + message_footer
+        base_logger.info("Burglary alert message created successfully.")
+        return full_message
+    else:
+        # No anomalies detected
+        message = "✅ **All Clear!** No unusual activities detected.\n"
+        message += "Everything is normal. Have a great day! 😊"
+        base_logger.info("No anomalies detected. Normal status message created.")
+        return message
 
+def detect_burglary(start_hours=24, interval_hours=24, time_threshold_seconds=1800):
+    """
+    Detects potential burglaries based on motion data and generates an appropriate message.
+    
     This function performs the following steps:
-    1. Trains the motion model using the provided parameters.
-    2. Initializes the BurglaryDetector with specified contamination and model type.
-    3. Trains the BurglaryDetector using the motion model data.
-    4. Saves the trained model to MinIO for persistent storage.
-
+    1. Initializes the BurglaryDetector with specified parameters.
+    2. Loads the latest trained model from MinIO.
+    3. Trains the motion model using the provided parameters.
+    4. Detects anomalies in the trained motion model.
+    5. Generates a formatted message based on the detection results.
+    
     Parameters:
     - start_hours (int): Starting hours for motion data analysis.
-    - interval_hours (int): Number of hours over which to aggregate motion data (e.g., 24*7*8 for 8 weeks).
-    - time_threshold_seconds (int): Threshold in seconds to filter motion durations (e.g., 1800 seconds).
+    - interval_hours (int): Number of hours over which to aggregate motion data (e.g., 24 for daily).
+    - time_threshold_seconds (int): Threshold in seconds to filter motion durations (e.g., 1800 for 30 minutes).
+    
+    Returns:
+    - Tuple[Optional[bool], Optional[str]]: A tuple containing:
+        - is_burglary (bool): Indicates whether any anomalies (potential burglaries) were detected.
+        - message (str): A formatted message detailing the detection results.
     """
-    motion_model = train_motion_model(start_hours=start_hours, interval_hours=interval_hours, time_threshold_seconds=1800)
-    # Initialize the detector
     detector = BurglaryDetector(contamination=0.01, model_type='burglary')
-    # Train the model
-    detector.train(motion_model)
-    # Save the trained model to MinIO
-    try:
-        detector.save_model()
-    except Exception as e:
-        base_logger.error(f"Error saving model: {e}")
+    detector.load_model(version=1)
+    motion_model = train_motion_model(start_hours=start_hours, interval_hours=interval_hours, time_threshold_seconds=time_threshold_seconds)
+    detection = detector.detect(motion_model)
+    message = create_burglary_message(detection[0], detection[1])
+    return detection[1], message

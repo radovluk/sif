@@ -21,7 +21,7 @@ async def create_burglary_notification_function(request: Request):
     mgs = await request.json()
     base_logger.info(f"Function create_burglary_notification_function received data: {mgs}")
     base_logger.info("Now I will send the burglary Notification.")
-    send_todo("Burlgary event created.", mgs, 2)
+    send_todo("🏠🚔 Burglary Alert! 🏠🔐", mgs, 2)
     return {"status": "success"}
 
 app.deploy(

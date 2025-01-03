@@ -12,4 +12,6 @@ networkx
 seaborn
 datetime
 typing
-json
+base64
+pickle
+typing

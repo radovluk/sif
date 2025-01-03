@@ -4,7 +4,8 @@ from fastapi import Request
 from base import PeriodicTrigger, OneShotTrigger
 from base.gateway import LocalGateway
 from base.homecare_hub_utils import send_info
-from detection import emergency_detection_workflow, detect_burglary
+from patient_emergency_detection import emergency_detection_workflow
+from burglary_detection import detect_burglary
 from motion_analysis import analyse_motion_patterns
 from base.event import (
     TrainOccupancyModelEvent,
@@ -109,11 +110,7 @@ async def motion_analysis_function(request: Request):
     base_logger.info("Function motion_analysis_function called.")
     data = await request.json()
     base_logger.info(f"Received data: {data}")
-
-    # TODO Complete this motion analysis function
     analyse_motion_patterns()
-    send_info("New motion analysis was successfully deployed!", "New motion analysis was deployed", 1)
-
     return {"status": "success"}
 
 # Instantiate events
@@ -210,4 +207,4 @@ for func_config in functions_to_deploy:
         evts=func_config["evts"],
         method=func_config["method"]
     )
-    base_logger.info(f"{func_config['name']} deployed.")
+    logger.info(f"{func_config['name']} deployed.")
