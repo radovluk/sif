@@ -277,7 +277,7 @@ def create_burglary_message(detection_df: pd.DataFrame, is_burglary: bool):
         base_logger.info("No anomalies detected. Normal status message created.")
         return message
 
-def detect_burglary(start_hours=24, interval_hours=24, time_threshold_seconds=1800):
+def detect_burglary(start_hours=2, interval_hours=2, time_threshold_seconds=1800):
     """
     Detects potential burglaries based on motion data and generates an appropriate message.
     
