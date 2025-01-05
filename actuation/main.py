@@ -1,9 +1,6 @@
 from base import LocalGateway, base_logger, PeriodicTrigger, BaseEventFabric
-from base.homecare_hub_utils import send_info, send_todo
+from base.homecare_hub_utils import send_todo
 from fastapi import Request
-import json
-import urllib3
-import time
 
 app = LocalGateway()
 base_logger.info("Gateway initiated.")

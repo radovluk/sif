@@ -50,7 +50,7 @@ async def create_motion_model_function(request: Request):
     motion_model = train_motion_model(start_hours=24*7, interval_hours=24*7, time_threshold_seconds=1800)
     
     # Save model to MinIO
-    save_model_to_minio(room_stats, "motion")
+    save_model_to_minio(motion_model, "motion")
 
     # Send info
     send_info("🚶‍♂️ New Motion Model Created Successfully! 🏃‍♀️","🚀 A new motion model has been deployed. 🏠📊",1)

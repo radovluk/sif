@@ -3,7 +3,6 @@ from fastapi import Request
 
 from base import PeriodicTrigger, OneShotTrigger
 from base.gateway import LocalGateway
-from base.homecare_hub_utils import send_info
 from patient_emergency_detection import emergency_detection_workflow
 from burglary_detection import detect_burglary
 from motion_analysis import analyse_motion_patterns
@@ -58,7 +57,7 @@ async def check_emergency_detection_function(request: Request):
         if emergency_detected:
             logger.info(f"Emergency detected: {message}")
             trigger = OneShotTrigger(EmergencyEvent(message))
-            trigger.call()
+            # trigger.call()
         else:
             logger.info("No emergency detected.")
 
@@ -92,7 +91,7 @@ async def check_burglary_detection_function(request: Request):
         if burglary_detected:
             logger.info(f"Burglary detected: {message}")
             trigger = OneShotTrigger(BurglaryEvent(message))
-            trigger.call()
+            # trigger.call()
         else:
             logger.info("No burglary detected.")
 
@@ -108,9 +107,9 @@ async def check_burglary_detection_function(request: Request):
         return {"status": "error", "message": str(e)}
 
 async def motion_analysis_function(request: Request):
-    base_logger.info("Function motion_analysis_function called.")
+    logger.info("Function motion_analysis_function called.")
     data = await request.json()
-    base_logger.info(f"Received data: {data}")
+    logger.info(f"Received data: {data}")
     analyse_motion_patterns()
     return {"status": "success"}
 

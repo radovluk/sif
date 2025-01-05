@@ -16,10 +16,20 @@ def send_info(summary: str, detail: str, level: int) -> None:
     """
     current_timestamp = int(time.time() * 1000)
 
+    # Serialize 'message' to a JSON string if it's not already a string
+    if isinstance(detail, str):
+        msg_str = detail
+    else:
+        try:
+            msg_str = json.dumps(detail, ensure_ascii=False)
+        except (TypeError, ValueError) as e:
+            logger.error(f"Failed to serialize message to JSON: {e}")
+            return
+
     info_item = {
         "timestamp": current_timestamp,
         "summary": summary,
-        "detail": detail,
+        "detail": msg_str,
         "level": level
     }
 
@@ -65,11 +75,21 @@ def send_todo(title: str, message: str, level: int) -> None:
     # Generate the current Unix timestamp in milliseconds
     current_timestamp = int(time.time() * 1000)
 
+    # Serialize 'message' to a JSON string if it's not already a string
+    if isinstance(message, str):
+        msg_str = message
+    else:
+        try:
+            msg_str = json.dumps(message, ensure_ascii=False)
+        except (TypeError, ValueError) as e:
+            logger.error(f"Failed to serialize message to JSON: {e}")
+            return
+
     # Create the ToDo item
     todo_item = {
         "timestamp": current_timestamp,
         "titel": title,
-        "msg": message,
+        "msg": msg_str,
         "level": level
     }
 
