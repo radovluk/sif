@@ -37,11 +37,7 @@ async def create_occupancy_model_function(request: Request):
     save_model_to_minio(room_stats, "occupancy")
 
     # Send info
-    send_info(
-        "🏥 New Occupancy Model Trained Successfully! 🤖",
-        "👩‍⚕️ A new occupancy model has been trained to assist with patient monitoring. 🛏️📈",
-        1
-    )
+    send_info("🏥 New Occupancy Model Trained Successfully! 🤖", "👩‍⚕️ A new occupancy model has been trained to assist with patient monitoring. 🛏️📈",1)
 
     return {"status": "success"}
 
@@ -57,12 +53,7 @@ async def create_motion_model_function(request: Request):
     save_model_to_minio(room_stats, "motion")
 
     # Send info
-    send_info(
-        "🚶‍♂️ New Motion Model Created Successfully! 🏃‍♀️",
-        "🚀 A new motion model has been deployed. 🏠📊",
-        1
-    )
-
+    send_info("🚶‍♂️ New Motion Model Created Successfully! 🏃‍♀️","🚀 A new motion model has been deployed. 🏠📊",1)
 
     return {"status": "success"}
 
@@ -74,11 +65,7 @@ async def create_burglary_model_function(request: Request):
     train_burglary_model(start_hours=24*7*6, interval_hours=24*7*6, time_threshold_seconds=1800)
 
     # Send info
-    send_info(
-        "🏠🔍 New Burglary Model Trained Successfully! 🚔",
-        "📊 A new burglary model has been trained and is ready to enhance home security. 🔒🏡",
-        1
-    )
+    send_info("🏠🔍 New Burglary Model Trained Successfully! 🚔","📊 A new burglary model has been trained and is ready to enhance home security. 🔒🏡",1)
 
     return {"status": "success"}
 
