@@ -86,7 +86,7 @@ functions_to_deploy = [
     {
         "func": create_burglary_model_function,
         "name": "create_burglary_model_function",
-        "evts": "TrainMotionBurglaryEvent",
+        "evts": "TrainBurglaryModelEvent",
         "method": "POST"
     }
 ]
