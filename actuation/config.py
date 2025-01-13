@@ -18,7 +18,6 @@ MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "9JyddmA0YyaIxd6Kl5pO")
 MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "N8iyTd2nJGgBKUVvnrdDRlFvyZGOM5macCTAIADJ")
 MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "models")
 MINIO_OBJECT_NAME_PREFIX = os.environ.get("MINIO_OBJECT_NAME", "model")
-LATEST_POINTER_FILE = "latest.txt"  # This file will store the name of the latest model object
 
 # Visualization component URL
 VIZ_COMPONENT_URL = f"http://{CURRENT_IP}:9000"

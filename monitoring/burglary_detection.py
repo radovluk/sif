@@ -1,19 +1,14 @@
 from base.minio_utils import load_model_from_minio, save_model_to_minio
 from motion_model import train_motion_model
 import pandas as pd
-import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 import seaborn as sns
-from datetime import datetime
 import pickle
 import base64
-from io import BytesIO, StringIO
-import json
-from typing import Optional
 import logging
 
 base_logger = logging.getLogger(__name__)

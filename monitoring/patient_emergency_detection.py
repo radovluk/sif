@@ -1,12 +1,8 @@
 import logging
 from typing import List, Tuple
-from datetime import datetime, timedelta
-from io import BytesIO, StringIO
-
+from datetime import timedelta
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
-from minio import Minio, S3Error  # Ensure MinIO client is imported
-
 from base.influx_utils import fetch_all_sensor_data
 from base.minio_utils import load_model_from_minio
 

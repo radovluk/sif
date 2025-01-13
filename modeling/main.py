@@ -1,11 +1,10 @@
 import logging
 from logging.handlers import RotatingFileHandler
-
 from fastapi import Request
 from base import LocalGateway, base_logger
 from base.influx_utils import fetch_all_sensor_data
 from base.minio_utils import save_model_to_minio
-from base.homecare_hub_utils import send_info, send_todo
+from base.homecare_hub_utils import send_info
 from occupancy_model import prepare_data_for_occupancy_model, train_occupancy_model
 from burglary_model import train_burglary_model
 from motion_model import train_motion_model

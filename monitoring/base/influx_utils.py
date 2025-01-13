@@ -23,7 +23,7 @@ def fetch_data(bucket: str, measurement: str, field: str, start_hours: int = 24,
 
     :param bucket: Name of the InfluxDB bucket.
     :param measurement: Measurement to filter (e.g., "PIR", "battery").
-    :param field: Field to fetch (e.g., "roomID", "soc").
+    :param field: Field to fetch (e.g., "roomID", "soc" as defined at the beginning of the project).
     :param start_hours: Number of hours in the past to start fetching data.
     :param interval_hours: Number of hours to span forward from the start time.
     :return: List of fetched data as dictionaries.

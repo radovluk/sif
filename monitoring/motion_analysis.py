@@ -7,7 +7,6 @@ import seaborn as sns
 import logging
 from base.minio_utils import load_model_from_minio
 from base.homecare_hub_utils import send_info
-import json
 
 # ------------------------------
 # Logging Configuration

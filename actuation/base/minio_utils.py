@@ -1,5 +1,3 @@
-# minio_utils.py
-
 import logging
 import json
 from io import BytesIO, StringIO
@@ -14,8 +12,7 @@ from config import (
     MINIO_ACCESS_KEY,
     MINIO_SECRET_KEY,
     MINIO_BUCKET,
-    MINIO_OBJECT_NAME_PREFIX,
-    LATEST_POINTER_FILE
+    MINIO_OBJECT_NAME_PREFIX
 )
 
 base_logger = logging.getLogger(__name__)

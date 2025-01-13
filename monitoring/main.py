@@ -1,6 +1,5 @@
 import logging
 from fastapi import Request
-
 from base import PeriodicTrigger, OneShotTrigger
 from base.gateway import LocalGateway
 from patient_emergency_detection import emergency_detection_workflow
@@ -57,7 +56,6 @@ async def check_emergency_detection_function(request: Request):
         if emergency_detected:
             logger.info(f"Emergency detected: {message}")
             trigger = OneShotTrigger(EmergencyEvent(message))
-            # trigger.call()
         else:
             logger.info("No emergency detected.")
 
@@ -91,7 +89,6 @@ async def check_burglary_detection_function(request: Request):
         if burglary_detected:
             logger.info(f"Burglary detected: {message}")
             trigger = OneShotTrigger(BurglaryEvent(message))
-            # trigger.call()
         else:
             logger.info("No burglary detected.")
 

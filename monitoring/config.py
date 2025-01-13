@@ -3,24 +3,32 @@ import os
 # CURRENT_IP = "192.168.8.159" # Prague IP
 CURRENT_IP = "192.168.81.143" # Munich IP home
 
-TRAIN_OCCUPANCY_MODEL_INTERVAL = "12h"  # The model will be retrained every XX hours
-TRAIN_OCCUPANCY_MODEL_WAIT_TIME = "30s"  # Wait XX minutes before starting the first retraining
+# Interval and wait time for retraining the occupancy model
+TRAIN_OCCUPANCY_MODEL_INTERVAL = "12h"  # The model will be retrained every 12 hours
+TRAIN_OCCUPANCY_MODEL_WAIT_TIME = "30s"  # Wait 30 seconds before starting the first retraining
 
-TRAIN_MOTION_MODEL_INTERVAL = "12h"
-TRAIN_MOTION_MODEL_WAIT_TIME = "15s"
+# Interval and wait time for retraining the motion model
+TRAIN_MOTION_MODEL_INTERVAL = "12h"  # The model will be retrained every 12 hours
+TRAIN_MOTION_MODEL_WAIT_TIME = "15s"  # Wait 15 seconds before starting the first retraining
 
-ANALYSE_MOTION_INTERVAL = "24h"
-ANALYSE_MOTION_WAIT_TIME = "20s"
+# Interval and wait time for analyzing motion data
+ANALYSE_MOTION_INTERVAL = "24h"  # Motion data will be analyzed every 24 hours
+ANALYSE_MOTION_WAIT_TIME = "20s"  # Wait 20 seconds before starting the first analysis
 
-TRAIN_BURGLARY_MODEL_INTERVAL = "12h"
-TRAIN_BURGLARY_MODEL_WAIT_TIME = "30s"
+# Interval and wait time for retraining the burglary model
+TRAIN_BURGLARY_MODEL_INTERVAL = "12h"  # The model will be retrained every 12 hours
+TRAIN_BURGLARY_MODEL_WAIT_TIME = "30s"  # Wait 30 seconds before starting the first retraining
 
-CHECK_BURGLARY_INTERVAL = "1h"
-CHECK_BURGLARY_WAIT_TIME = "40s"
+# Interval and wait time for checking burglary events
+CHECK_BURGLARY_INTERVAL = "1h"  # Burglary events will be checked every 1 hour
+CHECK_BURGLARY_WAIT_TIME = "40s"  # Wait 40 seconds before starting the first check
 
-CHECK_EMERGENCY_INTERVAL = "30m"
-CHECK_EMERGENCY_WAIT_TIME = "50s"
-TRESHOLD_FOR_EMERGENCY_DETECTION = 3 # Number of standard deviations from the mean to trigger an emergency.
+# Interval and wait time for checking emergency events
+CHECK_EMERGENCY_INTERVAL = "30m"  # Emergency events will be checked every 30 minutes
+CHECK_EMERGENCY_WAIT_TIME = "50s"  # Wait 50 seconds before starting the first check
+
+# Threshold for emergency detection
+TRESHOLD_FOR_EMERGENCY_DETECTION = 3  # Number of standard deviations from the mean to trigger an emergency
 
 START_HOURS_FOR_EMERGENCY_DETECTION = 24 * 7 * 4 # Start of the interval for fetching data used for emergency detection
 INTERVAL_HOURS_FOR_EMERGENCY_DETECTION = 24 * 7 * 4 # Duration of the interval for fetching data used for emergency detection
@@ -40,7 +48,6 @@ MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "9JyddmA0YyaIxd6Kl5pO")
 MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "N8iyTd2nJGgBKUVvnrdDRlFvyZGOM5macCTAIADJ")
 MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "models")
 MINIO_OBJECT_NAME_PREFIX = os.environ.get("MINIO_OBJECT_NAME", "model")
-LATEST_POINTER_FILE = "latest.txt"  # This file will store the name of the latest model object
 
 # Visualization component URL
 VIZ_COMPONENT_URL = f"http://{CURRENT_IP}:9000"

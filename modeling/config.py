@@ -2,6 +2,7 @@ import os
 
 # CURRENT_IP = "192.168.8.159" # Prague IP
 CURRENT_IP = "192.168.81.143" # Munich IP home
+# CURRENT_IP = "131.159.85.125" # CAPS ROOM IP
 
 # How old data to use for retraining
 TRAINING_DATA_WINDOW_HOURS = 24 * 7 * 2
@@ -18,7 +19,6 @@ MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "9JyddmA0YyaIxd6Kl5pO")
 MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "N8iyTd2nJGgBKUVvnrdDRlFvyZGOM5macCTAIADJ")
 MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "models")
 MINIO_OBJECT_NAME_PREFIX = os.environ.get("MINIO_OBJECT_NAME", "model")
-LATEST_POINTER_FILE = "latest.txt"  # This file will store the name of the latest model object
 
 # Visualization component URL
 VIZ_COMPONENT_URL = f"http://{CURRENT_IP}:9000"
