@@ -49,8 +49,6 @@
 	\item \textbf{General overview of your schedule including longer leave of absence (e.g., vacations) to explain missing data:}
 	\begin{itemize}
 		\item I was on Christmas leave from 21.12.2024 to 2.1.2025.
-		\item I was sharing the flat with another person and a cat, which made some tasks from this seminar harder to complete.
-		\item Occasionally, there was also a third person in the flat (once or twice a week).
 	\end{itemize}
 
 	\item \textbf{Hardware problems:}
@@ -75,13 +73,27 @@
 	\begin{itemize}
 		\item Present the scale map with the placement of the sensor and the observed area.
 	\end{itemize}
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{grundriss.jpeg}
+\caption{Scale map illustrating the sensor placement and the monitored area. The scale is 1:100. Red arrows indicate the orientation of the PIR sensors. Crossed-out areas are not part of the rented section of the flat.}
+\label{fig:scale_map}
+\end{figure}
+
+\begin{itemize}
 	\item \textbf{Challenges from positioning:}
 	\begin{itemize}
-		\item Which challenges arose from their positioning.
+		\item The Sensor in the kitchen triggered false positives if the door to the kitchen were opened and someone was in the hallway. 
+		\item The sensor placed in bathroom could be affected by the steam from the shower, however the device seems to survive the humidity well.
+		\item I have deployed exactly one ESP with a Magnetic Switch and PIR sensor simultaneously in my apartment. It has been placed in the bedroom. The PIR sensor was pointing towards the bed area, and the magnetic switch was placed on the entrance door. The idea was to track the sleep time of the patient. If the doors remained open, the sensor was still active, and no bed area events were recorded. This was done on purpose because I know that every time the patient goes to sleep, he will close the door first.
 	\end{itemize}
 	\item \textbf{Setup information:}
 	\begin{itemize}
-		\item Give any information necessary to understand your setup, for example, whether the apartment is only used by you or shared with a group of others.
+		\item Sharing the flat with another person and a cat presented additional challenges in completing some tasks for this seminar.
+		\item Occasionally, a third person (the landlord) would be present in the flat once or twice a week to work from the crossed-out room on the apartment map. The landlord also used the kitchen, where one of the PIR sensors was placed.
+		\item Throughout the semester, we hosted guests on several occasions (4-5 times), which impacted the data collection process. The highest number of guests was five, during the weekend of December 12-15, 2024.
 	\end{itemize}
 \end{itemize}
 
@@ -92,10 +104,8 @@
 \begin{itemize}
 	\item \textbf{Describe any aspect to consider while grading that impacted the development of your code, such as: programming skills, difficulties in understanding concepts, etc.}
 	\begin{itemize}
-		\item Limited experience with embedded systems programming, which required additional time to learn and understand the intricacies of hardware-software interaction.
-		\item Initial difficulties in understanding the ESP32's deep sleep and wake-up mechanisms, which were crucial for power management in the project.
-		\item Challenges in debugging hardware issues without access to advanced diagnostic tools, relying mostly on trial and error and online resources.
-		\item Balancing the project workload with other academic responsibilities, leading to time management challenges.
+		\item I had limited experience with embedded systems programming, which required additional time to learn and understand the given tasks.
+		\item I was also new to Docker and Kubernetes.
 	\end{itemize}
 \end{itemize}
 
@@ -154,9 +164,6 @@ void handle_wakeup_reason(){
 		\end{minted}
 			\end{enumerate}
 \end{itemize}
-
-			
-Note: I have deployed exactly one ESP with a Magnetic Switch and PIR sensor simultaneously in my apartment. It has been placed in the bedroom. The PIR sensor was pointing towards the bed area, and the magnetic switch was placed on the entrance door. The idea was to track the sleep time of the patient. If the doors remained open, the sensor was still active, and no bed area events were recorded. This was done on purpose because I know that every time the patient goes to sleep, he will close the door first.
 
 \subsection{Single Code for All Sensors (1p)}
 
