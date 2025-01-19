@@ -266,6 +266,8 @@ def plot_bidirectional_transaction_graph(df):
     
     plt.title('Patient Transaction Graph')
     plt.axis('off')
+    # Save the plot to a PDF file
+    plt.savefig("graph.pdf", format='pdf')
     plt.tight_layout()
     plt.show()
 
@@ -300,6 +302,8 @@ def visualize_transitions_heatmap(transition_df):
     plt.ylabel('From', fontsize=12)
     plt.xticks(rotation=45, ha='right', fontsize=10)
     plt.yticks(rotation=0, fontsize=10)
+    # Save the plot to a PDF file
+    plt.savefig("heatmap.pdf", format='pdf')
     plt.tight_layout()
     plt.show()
 
@@ -386,6 +390,8 @@ def create_separate_heat_maps(transition_df):
             current_plot += 1
     
     plt.tight_layout()
+    # Save the plot to a PDF file
+    plt.savefig("heatmap_days.pdf", format='pdf')
     plt.show()
 
 def format_duration(seconds: float) -> str:
