@@ -179,7 +179,7 @@ void handle_wakeup_reason(){
 	\end{itemize}
 
 	\begin{minted}[fontsize=\small]{c}
-//Struct definition for device information
+//Struct definition for device information in main.h
 /**
  * @brief Represents the configuration and metadata for a device.
  *
@@ -209,7 +209,7 @@ uint8_t mac_address[6];
 esp_read_mac(mac_address, ESP_MAC_WIFI_STA);
 identify_device(mac_address);
 
-// The implementation fo the identify_device function
+// The implementation fo the identify_device function in main.c
 identify_device(mac_address);
 /**
  * @brief Identifies the current device based on its MAC address.
@@ -237,26 +237,209 @@ void identify_device(const uint8_t* mac_address) {
 
 
 \subsection{Wake-up stub (2p)}
+\label{sec:wakeup_stub}
 
+\subsubsection{Key Points}
 \begin{itemize}
-	\item Describe the design and functionality of your wake-up stub code.
-	\item Explain timestamp handling and your approach to send PIR events in time.
-	\item You can include code snippets. 
-\end{itemize} 
+    \item \textbf{Sensor Trigger Filtering:} It checks if the sensors are newly triggered or still active. If the trigger is repetitive within a short time window, it returns to deep sleep without a full wake-up.
+\begin{minted}[fontsize=\small]{c}
+if (my_rtc_time_get_us() / 1000000 - last_wakeup_RTC <= SENSOR_INACTIVE_DELAY_IN_WAKE_UP_STUB_SEC) {
+	last_wakeup_RTC = my_rtc_time_get_us() / 1000000;
+	ets_delay_us(1000000); // Delay in microseconds.
+	esp_wake_stub_set_wakeup_time(AUTOMATIC_WAKEUP_INTERVAL_SEC * 1000000);
+	// Set stub entry, then go to deep sleep again.
+	esp_wake_stub_sleep(&wake_stub);
+}
+last_wakeup_RTC = my_rtc_time_get_us() / 1000000;
+\end{minted}
+    \item \textbf{Conditional Full Wake-Up:} If the PIR event array is full, or if a magnetic switch triggers, the stub decides to fully boot into the main application.
+    \item \textbf{Scheduled Timer Wake-Up:} Before returning to deep sleep, it sets a next wake-up timer, thus allowing periodic checks without fully waking the system each time. For this the variable \texttt{AUTOMATIC\_WAKEUP\_INTERVAL\_SEC} is used to set the next wake-up time.
+\end{itemize}
+
+\subsubsection{Timestamp Handling and Sending PIR Events in Time}
+\begin{itemize}
+    \item \textbf{RTC-Based Timing:} A helper function converts RTC counter ticks into microseconds, which the stub uses to get a ``local RTC time'' even in deep sleep.
+	\begin{minted}[fontsize=\small]{c}
+/**
+ * @brief Retrieves the current RTC time in microseconds.
+ *
+ * This function reads the RTC time registers to obtain the current time.
+ * It operates in the wake-up stub environment and uses low-level register access.
+ *
+ * @return Current RTC time in microseconds.
+ */
+RTC_IRAM_ATTR uint64_t my_rtc_time_get_us(void)
+{
+    SET_PERI_REG_MASK(RTC_CNTL_TIME_UPDATE_REG, RTC_CNTL_TIME_UPDATE);
+    while (GET_PERI_REG_MASK(RTC_CNTL_TIME_UPDATE_REG, RTC_CNTL_TIME_VALID) == 0) {
+        ets_delay_us(1); // Wait for RTC time to be valid.
+    }
+    SET_PERI_REG_MASK(RTC_CNTL_INT_CLR_REG, RTC_CNTL_TIME_VALID_INT_CLR);
+    uint64_t t = READ_PERI_REG(RTC_CNTL_TIME0_REG);
+    t |= ((uint64_t)READ_PERI_REG(RTC_CNTL_TIME1_REG)) << 32;
+
+    uint32_t period = REG_READ(RTC_SLOW_CLK_CAL_REG);
+
+    // Convert RTC clock cycles to microseconds.
+    uint64_t now_us = ((t * period) >> RTC_CLK_CAL_FRACT);
+
+    return now_us;
+}
+	\end{minted}
+    \item \textbf{Unix Timestamp Calculation:} After each successful SNTP sync in the main app, we store:
+        \begin{itemize}
+            \item \texttt{rtc\_time\_at\_last\_sync}: RTC time in milliseconds at sync.
+            \item \texttt{actual\_time\_at\_last\_sync}: Real Unix epoch time in milliseconds.
+        \end{itemize}
+\begin{minted}[fontsize=\small]{c}
+// Extern declarations for time synchronization variables during wake up stub in main.h
+// These variables will be stored in RTC memory to persist across deep sleep cycles
+extern RTC_DATA_ATTR uint64_t rtc_time_at_last_sync;
+extern RTC_DATA_ATTR uint64_t actual_time_at_last_sync;
+
+// Storing reference times in the main app (after SNTP sync)
+// main.c - after SNTP synchronization
+actual_time_at_last_sync = get_current_time_in_ms();
+rtc_time_at_last_sync = get_time_since_boot_in_ms();
+
+uint64_t get_current_time_in_ms() {
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    return (uint64_t)(now.tv_sec) * 1000 + (now.tv_usec) / 1000; // Convert to milliseconds
+}
+
+uint64_t get_time_since_boot_in_ms() {
+    return (my_rtc_time_get_us() / 1000); // Convert microseconds to milliseconds
+}
+
+\end{minted}
+      The wake stub computes the \emph{actual} timestamp by adding the difference between current RTC time and \texttt{rtc\_time\_at\_last\_sync} to \texttt{actual\_time\_at\_last\_sync}.
+\begin{minted}[fontsize=\small]{c}
+// Computing actual timestamp in the wake stub:
+void store_pir_event(void)
+{
+    // 1. Current RTC time in ms
+    uint64_t rtc_time_now = my_rtc_time_get_us() / 1000;
+
+    // 2. Calculate the time difference since last sync
+    uint64_t rtc_time_diff = rtc_time_now - rtc_time_at_last_sync;
+
+    // 3. Compute actual Unix timestamp in ms
+    uint64_t actual_timestamp = actual_time_at_last_sync + rtc_time_diff;
+
+    // Store the PIR event with the computed timestamp
+    pir_events[pir_event_count].timestamp = actual_timestamp;
+    // ...
+}
+\end{minted}
+    \item \textbf{PIR Event Storage:}
+	The PIR events are stored in an array of structs in RTC memory, until the array is full of a magnetic switch triggers a full wake-up or automatic wake-up interval is reached.
+	\begin{minted}[fontsize=\small]{c}
+/**
+ * @brief Represents the struct for a PIR event
+ *
+ * This struct includes the timestamp of the event and the device information.
+ */
+ typedef struct {
+    uint64_t timestamp;       // The actual Unix timestamp in milliseconds
+    device_info_t device;     // Device information associated with the event
+} PIR_Event_t;
+
+// Define the maximum number of PIR events stored in RTC memory, the array 
+// to store these events, and the counter for the events in main.h
+extern RTC_DATA_ATTR uint32_t MAX_PIR_EVENTS;
+extern RTC_DATA_ATTR PIR_Event_t pir_events[CONFIG_MAX_PIR_EVENTS];
+extern RTC_DATA_ATTR int pir_event_count;
+	\end{minted}
+    \begin{itemize}
+        \item If a PIR sensor wakes the device, the stub calls:
+\begin{minted}[fontsize=\small]{c}
+/**
+ * @brief Stores a PIR event with the current timestamp and device information.
+ *
+ * Calculates the actual timestamp based on RTC time and synchronization data,
+ * then stores the event in the PIR events array.
+ */
+ void store_pir_event(void)
+{
+	//...
+
+    // Store the new event with the calculated actual timestamp.
+    pir_events[pir_event_count].timestamp = actual_timestamp;
+
+    // Since we cannot use memcpy in the wake-up stub, we manually copy each field.
+    pir_events[pir_event_count].device.device_id = this_device.device_id;
+    pir_events[pir_event_count].device.battery_info_available = this_device.battery_info_available;
+
+    // Note: Assigning pointers directly as below is acceptable in the wake-up stub environment.
+    pir_events[pir_event_count].device.device_name = this_device.device_name;
+    pir_events[pir_event_count].device.device_topic = this_device.device_topic;
+    pir_events[pir_event_count].device.device_key = this_device.device_key;
+    pir_events[pir_event_count].device.room_id = this_device.room_id;
+
+    // Copy MAC address manually.
+    for (int i = 0; i < 6; i++) {
+        pir_events[pir_event_count].device.mac_address[i] = this_device.mac_address[i];
+    }
+
+    // Increment the event count.
+    pir_event_count++;
+}
+\end{minted}
+        \item If \texttt{pir\_event\_count} hits its maximum, the stub forces a full wake to upload all stored events via MQTT.
+    \end{itemize}
+\end{itemize}
 
 \subsection{Sending Battery RSOC (0.3p)}
+\label{sec:battery_rsoc}
 
 \begin{itemize}
-	\item How do you achieve periodic transfer of the RSOC value?
+    \item \textbf{RTC Timestamp Check:} The stub keeps a variable \texttt{last\_battery\_info\_time\_RTC}. On each wake, it checks if enough time has passed:
+\begin{minted}[fontsize=\small]{c}
+if ((my_rtc_time_get_us() / 1000000) - last_battery_info_time_RTC 
+        >= BATTERY_INFO_INTERVAL_SEC) {
+    last_battery_info_time_RTC = my_rtc_time_get_us() / 1000000;
+    esp_default_wake_deep_sleep(); // Force main app to fully boot
+}
+\end{minted}
+    \item Once awake, the main application reads the battery gauge and sends the RSOC (Remaining State of Charge) via MQTT. Since \texttt{last\_battery\_info\_time\_RTC} is in RTC memory, it persists through deep sleeps, ensuring strictly periodic RSOC uploads.
 \end{itemize}
 
-\subsection{Monday Problem (0.3p) }
+
+\subsection{Monday Problem (0.3p)}
 
 \begin{itemize}[noitemsep]
-	\item What entails the Monday problem?
-	\item What is your approach to solving the Monday problem.
-	\item Did you try different approaches?
+    \item \textbf{What is the Monday problem?}\\
+    The “Monday problem” refers to a situation where the Raspberry Pi (running the MQTT broker) is physically taken to class on Mondays, making the broker temporarily unreachable.
+
+    \item \textbf{Approach to solving the Monday problem}\\
+    To handle the broker’s unavailability, I introduced a boolean variable, \texttt{mqtt\_broker\_connected}, in \texttt{mqtt.c}. Whenever the device cannot connect to the broker, it skips sending data and retains the events in RTC memory. The next time the device fully wakes and finds the broker reachable, it sends all stored data.
+
+    \item \textbf{Alternative attempts?}\\
+    I did not attempt alternate solutions because the above approach—caching unsent events until reconnection—proved both straightforward and reliable.
 \end{itemize}
+
+\begin{minted}[fontsize=\small]{c}
+// Wait for connection with a timeout of 10 seconds
+EventBits_t bits = xEventGroupWaitBits(
+    mqtt_event_group, CONNECTED_BIT, false, true, pdMS_TO_TICKS(10000)
+);
+
+if (bits & CONNECTED_BIT) {
+    ESP_LOGI("mqtt", "Connected to MQTT\n");
+} else {
+    ESP_LOGI("mqtt", "Could not connect to MQTT broker\n");
+    mqtt_broker_connected = false;
+}
+
+// Example of error handling for PIR events 
+//(for battery information and magnetic switch data is the approach same)
+if (!mqtt_broker_connected) {
+    ESP_LOGI("PIR", "Cannot send stored PIR events, MQTT is not connected");
+    return;
+}
+\end{minted}
+
  
 \subsection{Power Consumption (1p)}
 
@@ -266,15 +449,37 @@ void identify_device(const uint8_t* mac_address) {
 
 \subsection{Limitations (0.5p)}
 
+The final solution meets the core requirements. However, it can be improved in the following ways:
 \begin{itemize}
-	\item Given your final solution, what does your code lacks? What can be improved?
+    \item Currently, only simple logic is used to filter repeated sensor triggers (If the patient stays active next to the sensor). More sophisticated signal filtering could prevent repeated events.
+    \item The application relies heavily on RTC memory for event storage. If the memory becomes full, older events risk being overwritten. An SD card or external storage could help preserve data when connectivity is lost.
+    \item Adding more sensors might require dynamic sensor configuration and more sophisticated scheduling for wake-ups. Current solution is tailored to a predefined sensors.
 \end{itemize}
 
-\subsection{Code Structure (0.5p)}
+\subsection{Code Structure} The project uses a standard ESP-IDF layout under the \texttt{main} folder, as shown below:
+\begin{verbatim}
+|- CMakeLists.txt
+|- main
+|   |- CMakeLists.txt
+|   |- component.mk
+|   |- gauge.c / gauge.h       (Battery gauge handling)
+|   |- main.c / main.h         (Main application logic)
+|   |- mqtt.c / mqtt.h         (MQTT client setup and event publishing)
+|   |- rtc_wake_stub.c / .h    (Wake-up stub logic for low-power triggers)
+|   |- sntp.c / sntp.h         (SNTP initialization and time synchronization)
+|   |- wifi.c / wifi.h         (Wi-Fi provisioning, connection, event handling)
+\end{verbatim}
 
+\noindent Below is a brief overview of the files:
 \begin{itemize}
-	\item Given your final code, describe its directory structure, and relevant files with their respective functionality.
+    \item \texttt{main.c, main.h}: Contains application entry-point (\texttt{app\_main}), handles device identification, event loops, power configuration, and sets up wake-up sources.
+    \item \texttt{rtc\_wake\_stub.c, .h}: Implements the minimal RTC wake-up stub, including time checks, sensor event handling, and re-entry into deep sleep if needed.
+    \item \texttt{wifi.c, wifi.h}: Initializes and manages the Wi-Fi connection (WPA2, SSID/password, IP assignment).
+    \item \texttt{mqtt.c, mqtt.h}: Sets up MQTT connectivity, handles message publishing (e.g., PIR events, battery status).
+    \item \texttt{sntp.c, sntp.h}: Configures SNTP for accurate time synchronization with NTP servers.
+    \item \texttt{gauge.c, gauge.h}: Includes battery gauge drivers (\texttt{lc709203f}) to measure voltage and state-of-charge (RSOC).
 \end{itemize}
+
  
 \subsection{Data Reporting (2p)}
 
