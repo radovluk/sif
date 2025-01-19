@@ -25,6 +25,7 @@
 
 %% ADD YOUR PACKAGES HERE
 \usepackage{minted} % Add this line to include the minted package
+\usepackage{siunitx} % Add this line to include the siunitx package
 
 \sloppy
 
@@ -48,8 +49,11 @@
 \begin{itemize}
 	\item \textbf{General overview of your schedule including longer leave of absence (e.g., vacations) to explain missing data:}
 	\begin{itemize}
-		\item I was on Christmas leave from 21.12.2024 to 2.1.2025.
+		\item Couple of multiday trips during the semester.
+		\item Christmas break from 15.12.2024 to 2.1.2025.
+		\item Unnoticed MQTT broker issue from 13.1.2025 to 18.1.2025.
 	\end{itemize}
+	\item For more details, refer to Section~\ref{sec:data_reporting}.
 
 	\item \textbf{Hardware problems:}
 	\begin{itemize}
@@ -75,13 +79,6 @@
 	\end{itemize}
 \end{itemize}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.6\textwidth]{grundriss.jpeg}
-\caption{Scale map illustrating the sensor placement and the monitored area. The scale is 1:100. Red arrows indicate the orientation of the PIR sensors. Crossed-out areas are not part of the rented section of the flat.}
-\label{fig:scale_map}
-\end{figure}
-
 \begin{itemize}
 	\item \textbf{Challenges from positioning:}
 	\begin{itemize}
@@ -96,6 +93,13 @@
 		\item Throughout the semester, we hosted guests on several occasions (4-5 times), which impacted the data collection process. The highest number of guests was five, during the weekend of December 12-15, 2024.
 	\end{itemize}
 \end{itemize}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1\textwidth]{grundriss.jpeg}
+	\caption{Scale map illustrating the sensor placement and the monitored area. The scale is 1:100. Red arrows indicate the orientation of the PIR sensors. Crossed-out areas are not part of the rented section of the flat.}
+	\label{fig:scale_map}
+\end{figure}
 
 \section{Sensor Development (10 pages)}
 
@@ -442,10 +446,96 @@ if (!mqtt_broker_connected) {
 
  
 \subsection{Power Consumption (1p)}
+\label{sec:power_consumption}
 
 \begin{itemize}
-	\item Provide the updated formula to estimate the battery life and the necessary measured data.
+	\item \textbf{Phases of Code Execution (160\,MHz, No Light Sleep).} Each duty cycle includes five main phases:
+    \begin{enumerate}
+      \item \textbf{Boot:} \(\sim 30\,\si{\micro\watt\hour}\)
+      \item \textbf{Wi-Fi Connection:} \(\sim 295\,\si{\micro\watt\hour}\)
+      \item \textbf{Clock Synchronization (NTP):} \(\sim 125\,\si{\micro\watt\hour}\)
+      \item \textbf{MQTT Connection \& Data Transmission:} \(\sim 31\,\si{\micro\watt\hour}\)
+      \item \textbf{Deep Sleep:} \(\sim 0\,\si{\micro\watt\hour}\) (negligible)
+    \end{enumerate}
+    \noindent The total energy consumption per cycle (Boot + Wi-Fi + NTP + MQTT) is about \(481\,\si{\micro\watt\hour}\).
+    
+  \item \textbf{Typical Energy Use per Cycle.}
+    \begin{itemize}
+      \item \textbf{No Light Sleep (160\,MHz):} About 481\,\si{\micro\watt\hour} per cycle (Boot + Wi-Fi + NTP + MQTT).
+      \item \textbf{Light Sleep (ALS 160\,MHz):} Around 435\,\si{\micro\watt\hour}.
+      \item \textbf{Dynamic Frequency + ALS:} Can drop cycle energy to roughly 443\,\si{\micro\watt\hour} if clock sync is done less often.
+    \end{itemize}
+
+  \item \textbf{Measurement Variations.}
+  Table~\ref{tab:power_summary} illustrates an example of minimum, maximum, mean, and standard deviation of per-cycle consumption (\si{\micro\watt\hour}) at different frequencies, with and without Automatic Light Sleep.
+
+  \begin{table}[h!]
+    \centering
+    \caption{Power Consumption Summary (Per Cycle) for Various Frequencies}
+    \label{tab:power_summary}
+    \begin{tabular}{lcccc}
+      \hline
+      \textbf{Frequency (MHz)} & \textbf{Min} & \textbf{Max} & \textbf{Mean} & \textbf{Std} \\
+      \hline
+      80          & 420 & 510 & 465 & 27 \\
+      160         & 460 & 520 & 481 & 20 \\
+      240         & 490 & 585 & 540 & 27 \\
+      160 + ALS   & 400 & 460 & 435 & 18 \\
+      \hline
+    \end{tabular}
+  \end{table}
+
+%   \item \textbf{Representative 2x2 Grid of Duty Cycle Phases.}
+%   \begin{figure}[h!]
+%     \centering
+%     %%% Subfigure A
+%     \begin{subfigure}{0.45\textwidth}
+%       \centering
+%       \fbox{\rule{0pt}{1.7in} \rule{0.9\linewidth}{0pt}}
+%       \caption{Boot Phase}
+%     \end{subfigure}
+%     \hfill
+%     %%% Subfigure B
+%     \begin{subfigure}{0.45\textwidth}
+%       \centering
+%       \fbox{\rule{0pt}{1.7in} \rule{0.9\linewidth}{0pt}}
+%       \caption{Wi-Fi Connection}
+%     \end{subfigure}
+%     %%% Subfigure C
+%     \begin{subfigure}{0.45\textwidth}
+%       \centering
+%       \fbox{\rule{0pt}{1.7in} \rule{0.9\linewidth}{0pt}}
+%       \caption{Clock Synchronization (NTP)}
+%     \end{subfigure}
+%     \hfill
+%     %%% Subfigure D
+%     \begin{subfigure}{0.45\textwidth}
+%       \centering
+%       \fbox{\rule{0pt}{1.7in} \rule{0.9\linewidth}{0pt}}
+%       \caption{MQTT \& Transmission}
+%     \end{subfigure}
+%     \caption{Energy distribution across four main phases in a single duty cycle.}
+%     \label{fig:duty_cycle_phases}
+%   \end{figure}
+
+  \item \textbf{Battery Life Estimation.}  
+  Let:
+  \begin{itemize}
+    \item $C_\mathrm{batt}$ = battery capacity in \si{\micro\watt\hour} (e.g.\ 1.4\,Ah at 3.7\,V $\approx$ 5{,}180{,}000\,\si{\micro\watt\hour}).
+    \item $E_\mathrm{cycle}$ = measured energy consumption per cycle in \si{\micro\watt\hour}.
+    \item $N_\mathrm{cycles}$ = number of cycles per day (e.g.\ 100).
+  \end{itemize}
+  Then the battery can sustain:
+  \[
+    \text{BatteryLife (cycles)} \;=\; \frac{C_{\mathrm{batt}}}{E_{\mathrm{cycle}}}.
+  \]
+  Over $N_\mathrm{cycles}$ per day, total days of operation is:
+  \[
+    \text{Days} \;=\; \frac{C_{\mathrm{batt}}}{E_{\mathrm{cycle}} \times N_{\mathrm{cycles}}}.
+  \]
+  For instance, with $C_{\mathrm{batt}}=5{,}180{,}000\,\si{\micro\watt\hour}$ and $E_{\mathrm{cycle}}=443\,\si{\micro\watt\hour}$ at 100 cycles/day, the device can run for roughly 117 days.
 \end{itemize}
+
 
 \subsection{Limitations (0.5p)}
 
@@ -482,38 +572,255 @@ The final solution meets the core requirements. However, it can be improved in t
 
  
 \subsection{Data Reporting (2p)}
+\label{sec:data_reporting}
 
 \begin{itemize}
-	\item Provide graphs proofing the continuous deployment of your sensors, including the battery usage history. 
-	\item Highlight and clarify interesting parts of the graphs.
+    \item \textbf{Proof of Continuous Deployment:}
+    Figure~\ref{fig:all_sensors_data} provides an overarching view of all recorded sensor data (kitchen, living room, bathroom). Despite certain offline periods (data gaps), the devices generally remained deployed and actively reported when connected and powered.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.15\textwidth]{all_sensors_data.pdf}
+    \caption{Consolidated view of sensor data (kitchen, living room, bathroom). Each symbol corresponds to a different sensor.}
+    \label{fig:all_sensors_data}
+\end{figure}
+
+    \item \textbf{Battery Usage Graphs:}
+    Figures~\ref{fig:kitchen_battery} and~\ref{fig:livingroom_battery} show examples of kitchen and living room battery levels over time. The bathroom ESP32 did not support battery monitoring.
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1.15\textwidth]{kitchen_battery.pdf}
+        \caption{Kitchen device battery usage and PIR event timestamps.}
+        \label{fig:kitchen_battery}
+    \end{figure}
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1.15\textwidth]{livingroom_battery.pdf}
+        \caption{Living Room device battery usage and PIR event timestamps.}
+        \label{fig:livingroom_battery}
+    \end{figure}
+
+	\subsubsection{Data Gaps Overview}
+	\label{sec:data_gaps}
+	
+	Despite good coverage, there were multi-day outages for each sensor due to initial deployment issues, holiday breaks, or multi-day trips. Tables~\ref{tab:pir_gaps} and~\ref{tab:magnetic_gaps} summarize these periods, including approximate reasons.
+	
+	\begin{table}[ht!]
+	\centering
+	\caption{Data Gaps for PIR Sensors}
+	\label{tab:pir_gaps}
+	\begin{tabular}{lllll}
+	\hline
+	\textbf{Sensor}            & \textbf{Gap Start}      & \textbf{Gap End}       & \textbf{Duration} & \textbf{Reason}              \\
+	\hline
+	\multicolumn{5}{l}{\textbf{PIR Sensors Gaps}} \\
+							   & 2024-11-01 17:53        & 2024-11-04 09:55       & $\sim3$ days      & Initial deployment           \\
+							   & 2024-11-04 10:35        & 2024-11-06 16:25       & $\sim2$ days      & Initial deployment           \\
+							   & 2024-11-11 14:48        & 2024-11-15 17:14       & $\sim4$ days      & Initial deployment           \\
+							   & 2024-11-17 14:50        & 2024-11-19 17:10       & $\sim2$ days      & Short trip                   \\
+							   & 2024-12-09 07:30        & 2024-12-12 13:30       & $\sim3$ days      & Pre-Christmas break          \\
+							   & 2024-12-21 08:08        & 2025-01-02 01:21       & $\sim12$ days     & Christmas break              \\
+							   & 2025-01-13 07:54        & 2025-01-18 19:34       & $\sim5$ days      & Unnoticed MQTT broker issue               \\
+	\end{tabular}
+	\end{table}
+	
+	\begin{table}[ht!]
+	\centering
+	\caption{Data Gaps for \texttt{livingroom\_magnetic\_switch}}
+	\label{tab:magnetic_gaps}
+	\begin{tabular}{llll}
+	\hline
+	\textbf{Gap Start}      & \textbf{Gap End}        & \textbf{Duration} & \textbf{Reason}             \\
+	\hline
+	2024-10-31 22:42        & 2024-11-07 18:10        & $\sim7$ days      & Initial deployment          \\
+	2024-11-11 12:57        & 2024-11-15 17:17        & $\sim4$ days      & Initial deployment          \\
+	2024-11-17 18:48        & 2024-11-22 19:36        & $\sim3$ days      & Short trip                  \\
+	2024-12-08 00:18        & 2024-12-15 22:10        & $\sim8$ days      & Unnoticed cable disconnection         \\
+	2024-12-20 18:45        & 2025-01-03 19:49        & $\sim14$ days     & Christmas break             \\
+	2025-01-05 18:48        & 2025-01-18 19:32        & $\sim13$ days     & Unnoticed MQTT broker issue + cable disconnection \\
+	\hline
+	\end{tabular}
+	\end{table}
+	
+	\noindent
+	\textbf{Comment on Gaps.} 
+	These offline intervals primarily occurred around the initial deployment period (before mid-November), the Christmas holiday (late December), and unnoticed MQTT broker issue in January. Once reconnected, the sensors resumed normal operation, uploading new PIR or magnetic switch events to the MQTT broker.
+	
+
+    \item These extended offline intervals reflect times when the devices were disconnected or powered down (e.g., holidays). Once reconnected, all events were again captured and sent to the broker.
 \end{itemize}
 
-
+\pagebreak
 \section{Digital Twin (17 pages)}
 
 \subsection{Event-driven Programming (1p)}
 
 \begin{itemize}
-	\item Explain the challenges of developing a distributed and event-driven system Focus on your knowledge (or lack of) about distributed systems, kubernetes, docker, event-driven programming, unfamiliarity with Python, new technologies, short-comings in time.
-	\item What difficulties did you face? How did you approach debugging issues in the system? What tools did you use?
+    \item \textbf{Challenges with a Distributed, Event-driven System} \\
+    I was already comfortable with Python and machine learning, but I had limited experience with distributed systems, containers (like Docker), and orchestration platforms (like Kubernetes). Working with an event-driven approach also introduced new concepts, such as triggers and message flows between microservices. The limited time to get everything set up and tested made this more challenging, especially when debugging issues that could happen in different services at once.
+
+    \item \textbf{Difficulties and Debugging Approach} \\
+    One of the main hurdles was figuring out how to trace errors across multiple containers or services. I used Jupyter notebooks locally to prototype and test smaller parts of the project, especially the data processing and model training code. For remote debugging, I added detailed logging statements to monitor the flow of events, making it easier to see where a service was failing or how data was being passed around. I relied on logs from each service to understand what happened when a specific event was triggered. This helped me quickly track down configuration problems or code bugs. Over time, I learned how to rebuild and redeploy services faster, so I could iterate on fixes without wasting too much time.
 \end{itemize}
+
 
 \subsection{Our Digital Twin Basics (2p)}
+\label{sec:digital_twin_basics}
 
 \begin{itemize}
-	\item Based on the communication diagram from the slides, describe which events are included in your code per component.
-	\item Provide some reasoning about their frequency and purpose. What data is generated by your custom Event Fabric that is relevant to invoking remote resources? Explain your design decision.
+    \item \textbf{Events in Each Component:}
+    \begin{itemize}
+        \item \textbf{Modeling (modeling/main.py):}
+        \begin{itemize}
+            \item \texttt{TrainOccupancyModelEvent}: Triggers the \texttt{create\_occupancy\_model\_function}, which fetches sensor data (e.g.\ room usage) and trains an occupancy model (\texttt{train\_occupancy\_model}).  
+            \item \texttt{TrainMotionModelEvent}: Invokes \texttt{create\_motion\_model\_function}, training a model that analyzes movement patterns and stores it (via \texttt{save\_model\_to\_minio}).  
+            \item \texttt{TrainBurglaryModelEvent}: Calls \texttt{create\_burglary\_model\_function}, training a burglary detection model for home security.
+        \end{itemize}
+
+        \item \textbf{Monitoring (monitoring/main.py):}
+        \begin{itemize}
+            \item \texttt{CheckEmergencyEvent}: Triggers \texttt{check\_emergency\_detection\_function}, which runs \texttt{emergency\_detection\_workflow} and may emit an \texttt{EmergencyEvent} if thresholds are exceeded (e.g.\ no movement detected for a prolonged period).
+            \item \texttt{AnalyzeMotionEvent}: Triggers \texttt{motion\_analysis\_function}, executing \texttt{analyse\_motion\_patterns} to detect unusual motion trends.
+            \item \texttt{CheckBurglaryEvent}: Fires \texttt{check\_burglary\_detection\_function}, running \texttt{detect\_burglary} logic and potentially dispatching a \texttt{BurglaryEvent}.
+        \end{itemize}
+
+        \item \textbf{Actuation (actuation/main.py):}
+        \begin{itemize}
+            \item \texttt{EmergencyEvent}: Calls \texttt{create\_emergency\_notification\_function}, which sends a high-priority (\texttt{send\_todo}) message to caregivers or relevant stakeholders.
+            \item \texttt{BurglaryEvent}: Invokes \texttt{create\_burglary\_notification\_function}, raising an alert for suspected unauthorized entry.
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Frequency and Purpose of Events:}
+    \begin{itemize}
+        \item \emph{Periodic Training}: The \emph{modeling} events (e.g.\ \texttt{TrainOccupancyModelEvent}) are fired at regular intervals (e.g.\ every few hours or days). This ensures the ML models remain up-to-date with evolving household patterns and occupant behavior.
+        \item \emph{Monitoring Checks}: The \emph{monitoring} events (\texttt{CheckEmergencyEvent}, \texttt{CheckBurglaryEvent}, \texttt{AnalyzeMotionEvent}) typically run more frequently (e.g.\ every 15\,minutes or hourly) to catch urgent situations promptly (medical emergencies, suspicious motion, etc.).
+        \item \emph{Actuation Alerts}: Whenever an emergency or burglary is detected, a one-shot event triggers \emph{actuation} logic, causing immediate notifications (\texttt{EmergencyEvent}, \texttt{BurglaryEvent}). These events focus on critical, time-sensitive responses, such as sending notifications to a caretaker or homeowner.
+    \end{itemize}
+
+    \item \textbf{Data Generated by the Custom Event Fabric:}
+    \begin{itemize}
+        \item \emph{Sensor Data Retrieval}: On the modeling side, each training function fetches historical sensor data (e.g.\ from InfluxDB) via \texttt{fetch\_all\_sensor\_data} and prepares it for analytics (\texttt{prepare\_data\_for\_occupancy\_model}).
+        \item \emph{Learned Models}: After training, models and statistical summaries are uploaded to MinIO (\texttt{save\_model\_to\_minio}) and can be re-used by the monitoring flows to detect unusual patterns or emergencies.
+        \item \emph{Alarms \& Notifications}: \texttt{EmergencyEvent} and \texttt{BurglaryEvent} produce JSON payloads with risk-level and context (e.g.\ “Patient is in bathroom for some amount of time”). The \textit{actuation} component receives these payloads and relays them to external services (via \texttt{send\_todo}) for display in dashboards or push notifications.
+    \end{itemize}
+\end{itemize}
+
+\subsubsection*{Reasoning Behind Configurable Intervals}
+
+\begin{itemize}
+    \item \textbf{Retraining Intervals (\texttt{TRAIN\_OCCUPANCY\_MODEL\_INTERVAL}, \texttt{TRAIN\_MOTION\_MODEL\_INTERVAL}, \texttt{TRAIN\_BURGLARY\_MODEL\_INTERVAL}):}\\
+    By default, these are set to \texttt{12h}. Retraining every 12 hours balances the need to adapt to new sensor data with the cost of computational resources. If the environment changes more rapidly, one could reduce the interval to improve model responsiveness. Conversely, if conditions are stable, retraining could be scheduled once a day or once a week to save resources. I chose 12 hours also for faster debugging.
+
+    \item \textbf{Analysis Intervals (\texttt{ANALYSE\_MOTION\_INTERVAL}):}\\
+    Motion data analysis is set to \texttt{24h}, reflecting that aggregated motion patterns may be more meaningful over a full day’s worth of data. This can be shortened if near real-time detection is necessary (e.g.\ motion anomalies every few hours).
+
+    \item \textbf{Emergency \& Burglary Checks (\texttt{CHECK\_EMERGENCY\_INTERVAL}, \texttt{CHECK\_BURGLARY\_INTERVAL}):}\\
+    These intervals (\texttt{30m} for emergencies, \texttt{1h} for burglaries) reflect the urgency of the events. Emergency checks run every 30 minutes to promptly detect inactivity or other critical signals. Burglary checks run hourly, as unauthorized-entry patterns may be less frequent but still demand timely detection.
+
+    \item All these parameters reside in \texttt{monitoring/config.py} so that different environments (e.g.\ a small home vs.\ a large facility) can easily tune these intervals. Adjusting intervals can reduce system load, optimize battery usage on sensor devices, or improve detection responsiveness, depending on deployment requirements.
 \end{itemize}
 
 
-\subsection{Use case 1: Emergency Detection (2p)}
+\subsection{Use Case 1: Emergency Detection (2p)}
+\label{sec:use_case_emergency_detection}
 
 \begin{itemize}
-	\item Given the uniqueness of your environment and your modeling approach, explain the design decision to determine whether a new data point might be normal behavior or an emergency.
-	\item What metrics are used to compare the new data How does the detection evolve by re-training your model? How does the model evolve?
-	\item Provide graphs comparing different weeks. Explain the behavior of the graphs. What is important to highlight? What features are relevant? Is the behavior expected?
+    \item \textbf{Environment and Modeling Approach} \\
+    Our setup monitors an apartment with two people and a cat, which introduces variability in sensor data. I chose a straightforward approach to detect possible emergencies based on how long someone remains in a single room. Specifically, I compute the \emph{mean} and \emph{standard deviation} (\( \sigma \)) of room-stay durations, then mark an event as an ``emergency'' if the measured time in that room falls outside a configurable threshold range:
+    \[
+      (\text{mean} - k \times \sigma, \;\text{mean} + k \times \sigma).
+    \]
+    Here, \(k\) is a tuning parameter (the number of standard deviations), set in code as \texttt{THRESHOLD\_FOR\_EMERGENCY\_DETECTION} (defaulting to 3). The idea is that if a resident stays significantly longer (or shorter) in a room than usual, it might indicate a problem (e.g., a fall, health emergency, or inability to leave).
+
+    \item \textbf{Metrics Used for Comparison} \\
+    \begin{itemize}
+        \item \textbf{Mean Duration:} Average time spent in each room, as calculated from historical sensor data.
+        \item \textbf{Standard Deviation (\(\sigma\)):} Measures the typical variability around that mean.
+        \item \textbf{Threshold:} A multiple of \(\sigma\). If the new data point is outside:
+        \[
+          [\text{mean} - k \times \sigma,\; \text{mean} + k \times \sigma],
+        \]
+        it raises an alert that might indicate an \emph{emergency}.
+    \end{itemize}
+
+    \item \textbf{Evolution by Re-Training the Model} \\
+    Our ``model'' is primarily a statistical table (\texttt{room\_stats}) of \texttt{(mean, std)} for each room. When re-trained:
+    \begin{enumerate}
+      \item I fetch a fresh window of sensor data (e.g.\ the last two weeks).
+      \item I recalculate the mean and standard deviation for each room based on new data.
+      \item Next time an event comes in, I use this updated \texttt{room\_stats} to decide if the current room duration is out of range.
+    \end{enumerate}
+    This \emph{simple statistical approach} gradually adapts to changes in living patterns. For example, if a resident starts spending more time in the bedroom for legitimate reasons, over subsequent re-training cycles, the mean bedroom-stay duration will increase, reducing false emergency alerts.
+
+    \item \textbf{Handling Two Residents and a Cat} \\
+    The presence of multiple residents and a pet can add noise. However, our focus was on the \emph{primary occupant’s time in each room}. Thus, I aggregate all motion events but rely on repeated triggers (like repeated \texttt{PIR} detections) to indicate continuous presence. In a real deployment, I could refine the sensor placement or logic to better distinguish individuals. For now, I maintain a single model that treats \textit{any} motion in a room as occupant presence.
+
+    \item \textbf{Code Snippets Illustrating Emergency Detection}
 \end{itemize}
 
+\begin{minted}[fontsize=\small]{python}
+# Constant for allowed deviation from mean:
+THRESHOLD_FOR_EMERGENCY_DETECTION = 3  # e.g., 3 std devs
+
+def detect_emergency(room: str, duration: float, stats: pd.Series, threshold: int = 3) -> (bool, str):
+    mean = stats.get("mean", 0)
+    std  = stats.get("std", 0)
+
+    # If standard deviation is zero, any difference from mean is unusual
+    if std == 0:
+        if duration != mean:
+            return True, "Time spent differs from mean; potential emergency."
+        else:
+            return False, "Time spent matches mean; no emergency."
+    else:
+        # Calculate lower/upper bounds
+        lower_bound = max(mean - threshold * std, 0)  # not below 0
+        upper_bound = mean + threshold * std
+        if duration < lower_bound or duration > upper_bound:
+            return True, "Time spent is outside allowed range; emergency."
+        else:
+            return False, "Time is within expected range; all good."
+\end{minted}
+
+\subsubsection*{Examples of Emergency and Non-Emergency Messages}
+
+Below are some sample messages generated by the \texttt{detect\_emergency} function, illustrating the ``Emergency Alert`` scenario.
+
+\begin{minted}[fontsize=\small]{text}
+ Emergency Alert!
+ Room: kitchen,
+ Patient has spent 03:45:00 here.
+ Expected duration (mean): 02:00:00,
+ Standard deviation (std): 00:30:00,
+ Threshold used: 3,
+ Allowed duration range: 00:30:00 - 03:30:00,
+ Duration is outside the allowed range!
+\end{minted}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.15\textwidth]{detected_emergencies.pdf}
+	\caption{Detected emergencies based on sensor data. Each point represents a detected emergency event.}
+	\label{fig:detected_emergencies}
+\end{figure}
+
+\begin{itemize}
+\item Weekly means show slight variations, reflecting natural behavioral changes, such as more time in the kitchen during meals or in the living room during leisure.
+\item Larger \(\sigma\) for the bathroom indicates irregular usage patterns compared to other rooms.
+\item  Weekly retraining adapts to routine changes, minimizing false alarms.
+\item Smaller \(\sigma\) in the kitchen room indicates consistent use patterns.
+
+\end{itemize}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.15\textwidth]{weekly_changes.pdf}
+	\caption{The weekly changes in the mean and std of the model.}
+	\label{fig:detected_emergencies}
+\end{figure}
 
 \subsection{ Use case 2: Detection of behavioral changes (3p)}
 
@@ -566,12 +873,92 @@ Provide this section only, if you developed an own use case.
 \end{itemize}
 
 
-\subsection{ Code structure (2p)}
+\subsection{Code Structure (2p)}
+\label{sec:code_structure}
+
+This project---named \textit{Digital Twin App}---is split into separate folders for each major component: 
+\texttt{actuation}, \texttt{modeling},\texttt{monitoring}, \texttt{viz-component} and \texttt{homecare-hub}. Each folder contains a \texttt{main.py} file
+that implements FastAPI endpoints and logic specific to that component.
+A common \texttt{base/} folder (symlinked or copied into each component) provides shared utilities 
+such as event classes, triggers, and helper functions to interact with databases, object storage, 
+and the HomeCare Hub utils to send the info and todo messages.
+
+For additional information also refer to the README.md file in the code repository. (There is one common file and then also separate README.md files in each component folder.)
 
 \begin{itemize}
-	\item Describe how your code is organized. Either individual folders per component or a unified folder with different "main.py" files.
-	\item Did you face any challenges due to your unfamiliarity with the software and your code organization?
-	\item Name the important files, their location, and their respective relevant implementation.
+  \item \textbf{Individual Folders per Component}
+  \begin{itemize}
+    \item \texttt{actuation/}
+      \begin{itemize}
+        \item \texttt{main.py}: Defines and deploys \texttt{create\_emergency\_notification\_function}
+          and \texttt{create\_burglary\_notification\_function}, each responsible for generating 
+          notifications (e.g., via \texttt{send\_todo}) when emergencies or burglaries are detected.
+        \item \texttt{Dockerfile}: Builds and containers this microservice.
+      \end{itemize}
+
+    \item \texttt{modeling/}
+      \begin{itemize}
+        \item \texttt{main.py}: Exposes endpoints for training the Occupancy, Motion, 
+          and Burglary ML models. Internally uses local modules like \texttt{occupancy\_model.py},
+          \texttt{motion\_model.py}, and \texttt{burglary\_model.py}.
+        \item \texttt{occupancy\_model.py}: Responsible for preparing and training the occupancy model, 
+          computing room-stay durations, etc.
+        \item \texttt{motion\_model.py}: Contains logic for analyzing transitions and motion events. 
+        \item \texttt{burglary\_model.py}: Implements an Isolation Forest-based burglary-detection model.
+      \end{itemize}
+
+    \item \texttt{monitoring/}
+      \begin{itemize}
+        \item \texttt{main.py}: Registers asynchronous functions for checking emergencies 
+          (\texttt{check\_emergency\_detection\_function}), burglary events 
+          (\texttt{check\_burglary\_detection\_function}), and general motion analysis 
+          (\texttt{motion\_analysis\_function}). Also configures periodic triggers for each event 
+          based on intervals specified in \texttt{config.py}.
+        \item \texttt{config.py}: Defines environment variables and intervals 
+          (e.g., \texttt{TRAIN\_OCCUPANCY\_MODEL\_INTERVAL = "12h"}, 
+          \texttt{CHECK\_EMERGENCY\_INTERVAL = "30m"}). These parameters are adjustable 
+          to match system load and user needs.
+      \end{itemize}
+  \end{itemize}
+
+  \item \textbf{Common \texttt{base/} Folder}
+  \begin{itemize}
+    \item \texttt{gateway.py}: Offers the \texttt{LocalGateway} class, enabling the components to define 
+      endpoints in a consistent manner.
+    \item \texttt{event.py}: Contains all event classes (e.g., \texttt{TrainOccupancyModelEvent}, 
+      \texttt{CheckEmergencyEvent}, \texttt{BurglaryEvent}), used for the event-driven architecture.
+    \item \texttt{trigger.py}: Implements \texttt{PeriodicTrigger} and \texttt{OneShotTrigger} for scheduling 
+      or one-time event invocation.
+    \item \texttt{homecare\_hub\_utils.py}: Provides communication methods like \texttt{send\_info} 
+      (for general notifications) and \texttt{send\_todo} (for alerts needing user action).
+    \item \texttt{influx\_utils.py}: Defines \texttt{fetch\_all\_sensor\_data} and other functions to 
+      query InfluxDB for sensor, battery, or aggregated data.
+    \item \texttt{minio\_utils.py}: Manages saving/loading DataFrames (model results, stats) to/from MinIO object storage.
+  \end{itemize}
+\end{itemize}
+
+\paragraph{Challenges and Organization Choices.}
+Initially, I had some confusion on how to structure the code for different services (e.g.\ 
+\texttt{actuation} vs.\ \texttt{monitoring}). I also had to learn how to keep track of
+common logic in the \texttt{base/} folder so I would not duplicate code in each microservice. 
+
+I found Docker and Kubernetes orchestration somewhat complex at first, but following 
+the microservices approach allowed me to build and deploy each component independently. 
+This structure made debugging easier: if something failed in \texttt{monitoring}, it rarely 
+affected \texttt{actuation} or \texttt{modeling} directly. Additionally, relying on 
+\texttt{docker-compose} or \texttt{k8s/} manifests simplified local testing.
+
+\paragraph{Important Files and Their Roles.}
+\begin{itemize}
+    \item \texttt{main.py} in each folder: The entry point for that service, registering 
+          relevant routes and triggers.
+    \item \texttt{config.py} (particularly in \texttt{monitoring/}): 
+          Specifies intervals/wait times for each scheduled job, plus 
+          external IP addresses or credentials for InfluxDB, MinIO, etc.
+    \item \texttt{*model.py}: Contains the logic for training each ML model 
+          (occupancy, motion, burglary).
+    \item \texttt{docker-compose.yml} or \texttt{k8s/*.yaml} (not shown in detail above): 
+          Describes how to run each microservice or scale them using Docker/Kubernetes.
 \end{itemize}
 
 
@@ -589,233 +976,6 @@ Under this agreement, you understand that we, the Chair CAPS, can use (read, mod
 MTK, Signature \hfill Date, Place
 
 \pagebreak
-% Use labels to be able to refer to this position from somewhere else
-\label{introduction}
-
-The introduction of a scientific work usually consists of the following
-parts:
-
-\begin{itemize}
-	\item motivation,
-	\item issues or drawbacks with existing solutions of a problem at 
-hand,
-	\item overview of new contribution and rest of the paper.
-\end{itemize}
-
-In the motivation you should explain why a given topic is interesting
-at all, and also, why solutions are important from a scientific point
-of view. There already may be a lot of existing solutions. Thus, it
-is important for the reader to understand the issues with these solutions,
-and why they are not enough for e.g. a specific scenario.
-
-After the motivation, you should explain the basic idea of your new
-contribution to solve the problem at hand, and give a short overview
-of how this works and why it is better than all other existing solutions.
-Finally, a short overview to the rest of the work should be provided,
-which may pick out the most important points. As any idea or solution
-proposed must be shown to be valid and useful, every scientific paper
-must have some evaluation and discussion. It may to useful to select
-important results, and mention them already as last part of the
-introduction, as motivation for the reader to read on. In summary,
-a good introduction makes the reader so interested into the topic and
-proposed new contributions that he cannot wait to read on.
-
-% free floating figure using width of one column.
-\begin{figure}
-\centerline{
-\includegraphics[width=0.9\columnwidth]{TUM-Logo-102.png}
-}
-\caption{The caption explaining what can be seen in the image/figure.
-Readers often read captions first if they do not have much time. Thus,
-it is important to find a good short explanation.}
-% A label to allow refering to this figure in the text.
-\label{TUM}
-\end{figure}
-
-% free floating figure using width of full page, to be put on [t]op.
-\begin{figure*}[t]
-\centerline{
-\includegraphics[width=0.9\textwidth]{test.pdf}
-}
-\caption{A nice caption. The larger width allows for more text without
-taking too much space.}
-\label{Fig2}
-\end{figure*}
-
-
-\section{Basic Rules for Using Latex}
-
-First, we want to refer to the figures and the introduction.
-See Figure~\ref{TUM} for the first floating figure with column width,
-and Figure~\ref{Fig2} for the one using the full page width.
-And here, we want to put a reference to the introduction which is
-Section~\ref{introduction}.
-
-In translating this template from German to English, I decided to
-stop here. There is not really much to get from the German text
-following. Anything Latex-related can also be looked up on the
-net. There is a {\it huge} number of tutorials, and so on.
-
-Please do not use to much different font sizes and styles. It should
-be completely enough to go to {\em italic mode} for emphasizing something,
-such as newly introduced terms.
-You can refer to other parts of your paper (e.g. see 
-Sec.~\ref{introduction}).
-Quoting in Latex is done ``this way''.
-Further, you may have problems with punctation characters.
-Most of them just need to be prefixed by a backslash, for others you may
-temporarily switch to math mode:
-\$ \& \% \# \{ \} [ ] \_ @ \S $<$ $>$ $\backslash$ @ \textasciitilde /
-    
-Talking about math mode: you can do some very nice things this way:
-
-\begin{equation}
-a^2 + b^2 = c^2
-\label{Pythagoras}
-\end{equation}
-
-Again, refering to this equation is easy (see Eq.~\ref{Pythagoras}).
-If you do not need numbering for equations, use the {\em displaymath}
-environment:
-
-\begin{displaymath}
-x_{1,2} = \frac{-b \pm \sqrt{b^2-4ac}}{2a}\\
-\end{displaymath}
-
-Short equations simply can be used within the regular text flow, such
-as with $x \to \infty$. Obviously, math is fun with Latex.
-
-
-\section{Enumerations}
-
-Enumerations using bullet points:
-
-\begin{itemize}
-	\item this is the first item of this list of interesting facts,
-	\item second item,
-	\item and the last one.
-\end{itemize}
-
-They also can be numbered:
-
-\begin{enumerate}
-	\item item one,
-	\item item two,
-	\item item three.
-\end{enumerate}
-
-As shown, numbers always should be written out in the text, unless the
-belong to a title or a formula.
-
-\section{Literature}
-
-At the end of your paper, you should have a nice list of used
-literature. For scientific papers, this actually is needed. You always
-use other works as base for your own. Usually, you are not the only
-one thinking about a given difficult problem, so there is always
-related work which {\em must} be cited if known to the author.
-
-Further, if you want to copy relevant sentences from an
-original paper, you {\em have} to cite them correctly, for example
-in this way:
-
-\begin{quote}
-	``I think there is a world market for maybe five computers.''
-	(T.J. Watson, IBM, 1943)
-\end{quote}
-
-The rest of the work (especially all the regular text) must be
-written/phrased by you. If you write about some results or fact
-stated in another paper, you should refer to it.
-The `Analytical Engine'' --- a mechanical calculation machine ---
-created by Charles Babbage in the year 1838 was based on the decimal
-system
-% use \cite to refer to papers from seminarpaper.bib
-% this file is processed by bibtex, and it automatically adds numbering
-\cite{Brom98}.
-
-\section{Figures and Tables}
-
-No need to understand the following text.
-
-Figures can span either one column (see Figure~\ref{TUM}) or the full
-page width (see Figure~\ref{Fig2}).
-Latex automatically tries to find the best place for these floating
-figures. To influence that, you may move the figure a bit to the front
-of your text.
-As can be seen in Figure~\ref{TUM}, using images usually results in very
-bad quality. Better use vector formats: draw the figures with
-{\em xfig} or {\em inkscape}, and save them as PDF. As example of
-this procedure, see Figure~\ref{Fig2}).
-
-% Narrow tables (just one column) have no * at the end
-\begin{table*}
-
-\begin{center}
-% arguments:
-% c = center
-% l = left
-% r = right (z. B. for cash)
-% p = columns with fixed width, using block layout
-% | = vertical line
-\begin{tabular}{|l|p{2cm}|c|c|c|c|c|r|}
-% horizontal line
-\hline
-% & means: next column
-% \\ means: next row
-	& Column 1 & Column 2 & Column 3 & Column 4& Column 5& Column 6& 
-Amount\\
-\hline
-Row 1 & This column has a maximal width of 2 cm.& X & X& X& X& X& 126,00\\
-\hline
-Row 2 & & \multicolumn{3}{p{5cm}|}{This entry occupies three columns.}& X &X 
-& 8,00\\
-\hline
-\multicolumn{7}{|l}{Sum} &134,00\\
-\hline
-\end{tabular}
-\end{center}
-
-\caption{This is the caption of the table.}
-% label is for this table
-\label{Tab1}
-
-\end{table*}
-
-Similar to figures, tables can be referred to in the text (see 
-Tab.~\ref{Tab1}). However, sometimes it is useful to embed tables directly in 
-the regular text flow:
-
-\begin{center}
-\begin{tabular}{|c|c|c|}
-\hline
-	& Column 1 & Column 2 \\
-\hline
-Row 1 & & \\
-Row 1 & & \\
-\hline
-\end{tabular}
-\end{center}
-
-
-\section{Summary}
-\label{summary}
-
-The summary shortly repeats the core ideas and results from the
-previous text. If the reader has problems understanding the summary
-he knows that he should go back to the relevant sections.
-Thus, the last section should consist of:
-
-\begin{itemize}
-	\item a summary,
-	\item an evaluation of what was done, importance of this work,
-	\item what is left, what still needs to be done,
-	\item short outlook into the future.
-\end{itemize}
-
-Last but not least, we can explain anything missing yet in the evaluation
-done in this paper. This allows to refer to what readers can expect from
-authors in the future.
 
 % Put citations from bibtex into References section which were not
 % explicity cited.
