@@ -26,6 +26,7 @@
 %% ADD YOUR PACKAGES HERE
 \usepackage{minted} % Add this line to include the minted package
 \usepackage{siunitx} % Add this line to include the siunitx package
+\usepackage{booktabs} % Add this line to include the booktabs package
 
 \sloppy
 
@@ -712,10 +713,10 @@ The final solution meets the core requirements. However, it can be improved in t
 
 \begin{itemize}
     \item \textbf{Retraining Intervals (\texttt{TRAIN\_OCCUPANCY\_MODEL\_INTERVAL}, \texttt{TRAIN\_MOTION\_MODEL\_INTERVAL}, \texttt{TRAIN\_BURGLARY\_MODEL\_INTERVAL}):}\\
-    By default, these are set to \texttt{12h}. Retraining every 12 hours balances the need to adapt to new sensor data with the cost of computational resources. If the environment changes more rapidly, one could reduce the interval to improve model responsiveness. Conversely, if conditions are stable, retraining could be scheduled once a day or once a week to save resources. I chose 12 hours also for faster debugging.
+    By default, these are set to \texttt{168h}. Retraining every week balances the need to adapt to new sensor data with the cost of computational resources. If the environment changes more rapidly, one could reduce the interval to improve model responsiveness. Conversely, if conditions are stable, retraining could be scheduled once a day or once a week to save resources. I chose 12 hours for faster debugging during the deployment phase.
 
     \item \textbf{Analysis Intervals (\texttt{ANALYSE\_MOTION\_INTERVAL}):}\\
-    Motion data analysis is set to \texttt{24h}, reflecting that aggregated motion patterns may be more meaningful over a full day’s worth of data. This can be shortened if near real-time detection is necessary (e.g.\ motion anomalies every few hours).
+    Motion data analysis is set to \texttt{168h}, reflecting that aggregated motion patterns may be more meaningful over a full day’s worth of data. This can be shortened if near real-time detection is necessary (e.g.\ motion anomalies every few hours).
 
     \item \textbf{Emergency \& Burglary Checks (\texttt{CHECK\_EMERGENCY\_INTERVAL}, \texttt{CHECK\_BURGLARY\_INTERVAL}):}\\
     These intervals (\texttt{30m} for emergencies, \texttt{1h} for burglaries) reflect the urgency of the events. Emergency checks run every 30 minutes to promptly detect inactivity or other critical signals. Burglary checks run hourly, as unauthorized-entry patterns may be less frequent but still demand timely detection.
@@ -979,7 +980,7 @@ Saturday  & 22:38:24 & 01:14:20 \\ \hline
 \begin{figure}[H]
 	\centering
 	\begin{minipage}{0.45\textwidth}
-		\centering
+		\centering 
 		\includegraphics[width=\textwidth]{heatmap1.pdf}
 		\caption{Heatmap of Weekly Transitions (24.11.- 1.12.2024)}
 		\label{fig:heatmap1}
@@ -992,21 +993,21 @@ Saturday  & 22:38:24 & 01:14:20 \\ \hline
 	\end{minipage}
 \end{figure}
 
-% \begin{figure}[H]
-% 	\centering
-% 	\begin{minipage}{0.45\textwidth}
-% 		\centering
-% 		\includegraphics[width=\textwidth]{heatmap_days1.pdf}
-% 		\caption{Heatmap of Daily Transitions (24.11.- 1.12.2024)}
-% 		\label{fig:heatmap1}
-% 	\end{minipage}\hspace{0.04\textwidth}
-% 	\begin{minipage}{0.45\textwidth}
-% 		\centering
-% 		\includegraphics[width=\textwidth]{heatmap_days2.pdf}
-% 		\caption{Heatmap of Daily Transitions (1.12.- 8.12.2024)}
-% 		\label{fig:heatmap2}
-% 	\end{minipage}
-% \end{figure}
+\begin{figure}[H]
+	\centering
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{heatmap_days1.pdf}
+		\caption{Heatmap of Daily Transitions (24.11.- 1.12.2024)}
+		\label{fig:heatmap1}
+	\end{minipage}\hspace{0.04\textwidth}
+	\begin{minipage}{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{heatmap_days2.pdf}
+		\caption{Heatmap of Daily Transitions (1.12.- 8.12.2024)}
+		\label{fig:heatmap2}
+	\end{minipage}
+\end{figure}
 
 \begin{figure}[H]
 	\centering
@@ -1028,31 +1029,271 @@ Saturday  & 22:38:24 & 01:14:20 \\ \hline
 
 \subsection{ Use case 3: Burglary Detection (4p)}
 
-Provide this section only, if you developed an own use case.
+My own use case for the homecare hub involved burglary detection. For detection, I used Isolation Forest, which is capable of detecting anomalies in data. In this case, I used data on movement and transitions between rooms. I chose this model because I concluded that it would be easier to perform such anomaly detection for an apartment with multiple occupants. I used Isolation Forest because it can detect anomalies in data that are mutually independent.
 
-\begin{itemize}
-	\item If you implement another use case, explain the model, its use, important metrics, your modeling design decisions, and short-comings of the model given the amount of data, seasonality, style of data.
+\begin{minted}[fontsize=\small]{python}
+class BurglaryDetector:
+    def __init__(self, contamination='auto', random_state=42, model_type: str = 'burglary'):
+        """
+        Initializes the BurglaryDetector with specified Isolation Forest parameters.
+
+        Parameters:
+        - contamination: float, 'auto' or float, the proportion of anomalies in the data set.
+        - random_state: int, random seed for reproducibility.
+        - model_type: str, identifier for the model type (used in MinIO storage).
+        """
+        self.contamination = contamination
+        self.random_state = random_state
+        self.model = None
+        self.preprocessor = None
+        self.feature_columns = None
+        self.model_type = model_type
+    # ...
+    def train(self, df: pd.DataFrame):
+        """
+        Trains the Isolation Forest model on the provided DataFrame.
+
+        Parameters:
+        - df: pandas DataFrame with columns ['from', 'to', 'leave_time', 'enter_time'].
+        """
+        # Feature engineering
+        df_features, _ = self._feature_engineering(df.copy())
+        # Separate features and prepare the pipeline
+        X = df_features.copy()
+        # Initialize Isolation Forest within a Pipeline
+        self.model = Pipeline(steps=[
+            ('preprocessor', self.preprocessor),
+            ('classifier', IsolationForest(
+                n_estimators=100,
+                contamination=self.contamination,
+                random_state=self.random_state
+            ))
+        ])
+        # Fit the model
+        self.model.fit(X)
+        # Store feature columns after preprocessing for reference
+        self.feature_columns = self.model.named_steps['preprocessor'].get_feature_names_out()
+    #...
+    def detect_burglary(start_hours=2, interval_hours=2, time_threshold_seconds=1800):
+        """
+        Detects potential burglaries based on motion data and generates an appropriate message.
+        Parameters:
+        - start_hours (int): Starting hours for motion data analysis.
+        - interval_hours (int): Number of hours over which to aggregate motion data (e.g., 24 for daily).
+        - time_threshold_seconds (int): Threshold in seconds to filter motion durations (e.g., 1800 for 30 minutes).
+
+        Returns:
+        - Tuple[Optional[bool], Optional[str]]: A tuple containing:
+            - is_burglary (bool): Indicates whether any anomalies (potential burglaries) were detected.
+            - message (str): A formatted message detailing the detection results.
+        """
+        detector = BurglaryDetector(contamination=0.01, model_type='burglary')
+        detector.load_model(version=1)
+        motion_model = train_motion_model(
+            start_hours=start_hours, 
+            interval_hours=interval_hours, 
+            time_threshold_seconds=time_threshold_seconds)
+        detection = detector.detect(motion_model)
+        message = create_burglary_message(detection[0], detection[1])
+        return detection[1], message
+\end{minted}
+
+\subsubsection{Algorithm Parameters}
+\begin{itemize}[noitemsep, topsep=0pt]
+    \item \textbf{Number of Trees ($n\_estimators$)}: Determines the number of decision trees in the forest. A larger number improves accuracy but increases computation time.
+    \item \textbf{Contamination ($contamination$)}: Proportion of the dataset expected to be anomalies. This parameter affects the threshold for classifying anomalies.
+    \item \textbf{Random State ($random\_state$)}: Ensures reproducibility by setting a fixed seed for random number generation.
+    \item \textbf{Subsample Size}: Number of samples used to construct each tree. Smaller subsamples increase randomness and reduce computation.
 \end{itemize}
 
+This \texttt{detect\_burglary} function performs the following steps:
+\begin{enumerate}
+    \item Initializes the \texttt{BurglaryDetector} with specified parameters.
+    \item Loads the latest trained model from MinIO.
+    \item Trains the motion model using the provided parameters.
+    \item Detects anomalies in the trained motion model.
+    \item Generates a formatted message based on the detection results.
+\end{enumerate}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.1\textwidth]{burglaries_detected.pdf}
+	\caption{The detected burglaries based on transition data. Each point represents a detected burglary event.}
+	\label{fig:hub}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.1\textwidth]{homecare-hub02.png}
+	\caption{The communication with the homecare-hub. Patient emergiencies and burglaries.}
+	\label{fig:hub}
+\end{figure}
 
 \subsection{ Performance Analysis (2p)}
 
+\subsubsection{Performance Statistics of Emergency Model}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Operation} & \textbf{Mean (s)} & \textbf{Std Dev (s)} & \textbf{Min (s)} & \textbf{Max (s)} \\
+\midrule
+Fetch/Preprocess Times   & 0.670 & 0.161 & 0.536 & 1.132 \\
+Train Times   & 0.014 & 0.005 & 0.012 & 0.028 \\
+Save Model Times    & 0.136 & 0.071 & 0.087 & 0.308 \\
+\bottomrule
+\end{tabular}
+\caption{Summary of Time Statistics for 2000 data points (one week of data)}
+\label{tab:performance_stats}
+\end{table}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Operation} & \textbf{Mean (s)} & \textbf{Std Dev (s)} & \textbf{Min (s)} & \textbf{Max (s)} \\
+\midrule
+Fetch/Preprocess Times   & 1.993 & 0.248 & 1.685 & 2.492 \\
+Train Times   & 0.013 & 0.001 & 0.012 & 0.015 \\
+Save Model Times    & 0.118 & 0.047 & 0.082 & 0.235 \\
+\bottomrule
+\end{tabular}
+\caption{Summary of Time Statistics for 28183 Data Points (Full Dataset)}
+\label{tab:performance_stats_28183}
+\end{table}
+
+\subsubsection{Performance Statistics of Motion Model}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Operation} & \textbf{Mean (s)} & \textbf{Std Dev (s)} & \textbf{Min (s)} & \textbf{Max (s)} \\
+\midrule
+Train Times         & 0.803 & 0.202 & 0.708 & 1.400 \\
+Save Model Times    & 0.173 & 0.062 & 0.118 & 0.326 \\
+\bottomrule
+\end{tabular}
+\caption{Summary of Time Statistics for Motion Model (2000 Data Points)}
+\label{tab:motion_model_stats_2000}
+\end{table}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Operation} & \textbf{Mean (s)} & \textbf{Std Dev (s)} & \textbf{Min (s)} & \textbf{Max (s)} \\
+\midrule
+Train Times         & 2.906 & 0.289 & 2.625 & 3.727 \\
+Save Model Times    & 0.527 & 0.075 & 0.390 & 0.635 \\
+\bottomrule
+\end{tabular}
+\caption{Summary of Time Statistics for Motion Model (28183 Data Points)}
+\label{tab:motion_model_stats_28183}
+\end{table}
+
+\subsubsection*{Performance Statistics of Burglary Model}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Operation} & \textbf{Mean (s)} & \textbf{Std Dev (s)} & \textbf{Min (s)} & \textbf{Max (s)} \\
+\midrule
+Fetch/Preprocess Times   & 1.990 & 0.244 & 1.682 & 2.489 \\
+Train Times   & 0.013 & 0.001 & 0.012 & 0.015 \\
+Save Model Times    & 0.118 & 0.046 & 0.082 & 0.235 \\
+\bottomrule
+\end{tabular}
+\caption{Summary of Time Statistics for Burglary Model (2000 Data Points)}
+\label{tab:burglary_model_stats_2000}
+\end{table}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Operation} & \textbf{Mean (s)} & \textbf{Std Dev (s)} & \textbf{Min (s)} & \textbf{Max (s)} \\
+\midrule
+Total Times         & 2.926 & 0.141 & 2.745 & 3.222 \\
+\bottomrule
+\end{tabular}
+\caption{Summary of Time Statistics for Burglary Model (28183 Data Points)}
+\label{tab:burglary_model_stats_28183}
+\end{table}
+
+\subsubsection{Model Sizes}
+
+The table below summarizes the sizes of different models with calculated mean and standard deviation values.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Model} & \textbf{Size (Mean)} & \textbf{Size (Std Dev)} & \textbf{Size (Min)} & \textbf{Size (Max)} \\
+\midrule
+Burglary Model      & 2.2 MiB  & 0.0 MiB  & 2.2 MiB  & 2.2 MiB  \\
+Motion Model        & 466.7 KiB & 0.0 KiB & 466.7 KiB & 466.7 KiB \\
+Occupancy Model     & 193.25 B & 5.14 B & 188.0 B & 199.0 B \\
+\midrule
+\bottomrule
+\end{tabular}
+\caption{Summary of Model Sizes}
+\label{tab:model_sizes}
+\end{table}
+
+\subsubsection{Performance Statistics of Emergency Model}
+
 \begin{itemize}
-	\item Measure response times (time from trigger calling the event fabric until delivering the event to the scheduler or time from calling event fabric till actuation communicates an emergency) and execution times (time taken from dispatching the invocation until completing the invocation) for each event, break it down in terms of fetching data from storage and compute times.
-	\item How long does it take to train your model?
-	\item How does it perform when your model considers more data? Correlate increasing days of data vs time.
-	\item What is the ratio between preprocessing your data and training? 
-	\item What is the size of your models?
+    \item Measure response times (time from triggering the event fabric until delivering the event to the scheduler or time from calling the event fabric until actuation communicates an emergency) and execution times (time taken from dispatching the invocation until completing the invocation) for each event. Break it down in terms of fetching data from storage and compute times. From the function trigger to the function call, it is 0.001s (which is negligible). The other times are measured above.
+\begin{minted}[fontsize=\small]{python}
+# Example of logs
+2025-01-19T07:26:30.340Z |       INFO   Function create_burglary_model_function called.
+2025-01-19T07:26:30.341Z |       INFO   Received data: {'TrainBurglaryModelEvent': {'data': {'message': 
+2025-01-19T07:26:30.341Z |              'Retraining the burglary model'}, 'timestamp': 
+2025-01-19T07:26:30.341Z |              '2025-01-19T07:26:30'}}
+2025-01-19T07:26:31.943Z | Model training completed.
+\end{minted}
 \end{itemize}
 
 
-\subsection{ Limitations (1p)}
+\subsubsection{Performance with Increasing Data}
+As data volume increases, performance scales linearly for operations such as fetching/preprocessing and saving models. This is evident from Tables above.
 
 \begin{itemize}
-	\item Describe current limitations of your implementation.
+    \item \textbf{Example Correlation:}
+    \begin{itemize}
+        \item Preprocessing time for 2000 data points: ~0.670s (mean).
+        \item Preprocessing time for 28183 data points: ~1.993s (mean), scaling directly with data size.
+    \end{itemize}
 \end{itemize}
 
+\subsubsection{Preprocessing vs. Training Ratio}
+The ratio of preprocessing time to training time highlights the dominant cost in overall execution:
 
+\begin{itemize}
+    \item \textbf{Emergency Model:}
+    \begin{itemize}
+        \item Preprocessing to Training Ratio (2000 points): \( \frac{0.670}{0.014} \approx 47.86 \)
+        \item Preprocessing to Training Ratio (28183 points): \( \frac{1.993}{0.013} \approx 153.31 \)
+    \end{itemize}
+    \item \textbf{Motion Model:}
+    \begin{itemize}
+        \item Preprocessing to Training Ratio (2000 points): \( \frac{1.990}{0.803} \approx 2.48 \)
+        \item Preprocessing to Training Ratio (28183 points): \( \frac{1.993}{2.906} \approx 0.69 \)
+    \end{itemize}
+\end{itemize}
+
+\subsection{Limitations (1p)}
+
+The current system has several limitations:
+\begin{itemize}
+    \item The behavioral models assume only one person, which isn't ideal for multiple occupants. It needs consistent network connectivity, and offline periods can cause data delays or loss.
+    \item The burglary detection might give false alarms due to normal activities like having guests.
+    \item The current solution also lacks the path analyses and the burglary detection model is trained on transation data, not paths. Thee visualisation in homecare hub is not ideal and could be improved.
+    \item The occupancy model could be further devided into separated times during the day.
+\end{itemize}
 \subsection{Code Structure (2p)}
 \label{sec:code_structure}
 

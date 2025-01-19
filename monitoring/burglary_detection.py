@@ -29,7 +29,7 @@ class BurglaryDetector:
         self.model = None
         self.preprocessor = None
         self.feature_columns = None
-        self.model_type = model_type  # e.g., 'burglary'
+        self.model_type = model_type
 
     def _feature_engineering(self, df: pd.DataFrame):
         """
