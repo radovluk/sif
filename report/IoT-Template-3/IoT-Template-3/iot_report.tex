@@ -368,25 +368,20 @@ extern RTC_DATA_ATTR int pir_event_count;
  void store_pir_event(void)
 {
 	//...
-
     // Store the new event with the calculated actual timestamp.
     pir_events[pir_event_count].timestamp = actual_timestamp;
-
     // Since we cannot use memcpy in the wake-up stub, we manually copy each field.
     pir_events[pir_event_count].device.device_id = this_device.device_id;
     pir_events[pir_event_count].device.battery_info_available = this_device.battery_info_available;
-
     // Note: Assigning pointers directly as below is acceptable in the wake-up stub environment.
     pir_events[pir_event_count].device.device_name = this_device.device_name;
     pir_events[pir_event_count].device.device_topic = this_device.device_topic;
     pir_events[pir_event_count].device.device_key = this_device.device_key;
     pir_events[pir_event_count].device.room_id = this_device.room_id;
-
     // Copy MAC address manually.
     for (int i = 0; i < 6; i++) {
         pir_events[pir_event_count].device.mac_address[i] = this_device.mac_address[i];
     }
-
     // Increment the event count.
     pir_event_count++;
 }
@@ -449,14 +444,16 @@ if (!mqtt_broker_connected) {
 \subsection{Power Consumption (1p)}
 \label{sec:power_consumption}
 
+\subsubsection{Power Consumption without Wake Up Stub}
+
 \begin{itemize}
-	\item \textbf{Phases of Code Execution (160\,MHz, No Light Sleep).} Each duty cycle includes five main phases:
+    \item \textbf{Phases of Code Execution (160\,MHz, No Light Sleep).} Each duty cycle includes five main phases:
     \begin{enumerate}
       \item \textbf{Boot:} \(\sim 30\,\si{\micro\watt\hour}\)
       \item \textbf{Wi-Fi Connection:} \(\sim 295\,\si{\micro\watt\hour}\)
       \item \textbf{Clock Synchronization (NTP):} \(\sim 125\,\si{\micro\watt\hour}\)
       \item \textbf{MQTT Connection \& Data Transmission:} \(\sim 31\,\si{\micro\watt\hour}\)
-      \item \textbf{Deep Sleep:} \(\sim 0\,\si{\micro\watt\hour}\) (negligible)
+      \item \textbf{Deep Sleep:} \(\sim 0.1\,\si{\micro\watt\hour}\) (negligible)
     \end{enumerate}
     \noindent The total energy consumption per cycle (Boot + Wi-Fi + NTP + MQTT) is about \(481\,\si{\micro\watt\hour}\).
     
@@ -476,7 +473,7 @@ if (!mqtt_broker_connected) {
     \label{tab:power_summary}
     \begin{tabular}{lcccc}
       \hline
-      \textbf{Frequency (MHz)} & \textbf{Min} & \textbf{Max} & \textbf{Mean} & \textbf{Std} \\
+      \textbf{Frequency (MHz)} & \textbf{Min (\si{\micro\watt\hour})} & \textbf{Max (\si{\micro\watt\hour})} & \textbf{Mean (\si{\micro\watt\hour})} & \textbf{Std (\si{\micro\watt\hour})} \\
       \hline
       80          & 420 & 510 & 465 & 27 \\
       160         & 460 & 520 & 481 & 20 \\
@@ -485,39 +482,6 @@ if (!mqtt_broker_connected) {
       \hline
     \end{tabular}
   \end{table}
-
-%   \item \textbf{Representative 2x2 Grid of Duty Cycle Phases.}
-%   \begin{figure}[h!]
-%     \centering
-%     %%% Subfigure A
-%     \begin{subfigure}{0.45\textwidth}
-%       \centering
-%       \fbox{\rule{0pt}{1.7in} \rule{0.9\linewidth}{0pt}}
-%       \caption{Boot Phase}
-%     \end{subfigure}
-%     \hfill
-%     %%% Subfigure B
-%     \begin{subfigure}{0.45\textwidth}
-%       \centering
-%       \fbox{\rule{0pt}{1.7in} \rule{0.9\linewidth}{0pt}}
-%       \caption{Wi-Fi Connection}
-%     \end{subfigure}
-%     %%% Subfigure C
-%     \begin{subfigure}{0.45\textwidth}
-%       \centering
-%       \fbox{\rule{0pt}{1.7in} \rule{0.9\linewidth}{0pt}}
-%       \caption{Clock Synchronization (NTP)}
-%     \end{subfigure}
-%     \hfill
-%     %%% Subfigure D
-%     \begin{subfigure}{0.45\textwidth}
-%       \centering
-%       \fbox{\rule{0pt}{1.7in} \rule{0.9\linewidth}{0pt}}
-%       \caption{MQTT \& Transmission}
-%     \end{subfigure}
-%     \caption{Energy distribution across four main phases in a single duty cycle.}
-%     \label{fig:duty_cycle_phases}
-%   \end{figure}
 
   \item \textbf{Battery Life Estimation.}  
   Let:
@@ -537,6 +501,65 @@ if (!mqtt_broker_connected) {
   For instance, with $C_{\mathrm{batt}}=5{,}180{,}000\,\si{\micro\watt\hour}$ and $E_{\mathrm{cycle}}=443\,\si{\micro\watt\hour}$ at 100 cycles/day, the device can run for roughly 117 days.
 \end{itemize}
 
+\subsubsection{Power Consumption with Wake Up Stub}
+
+\begin{table}[h!]
+    \centering
+    \caption{Power Consumption per Wake Up Stub Cycle}
+    \label{tab:power_summary}
+    \begin{tabular}{lcccc}
+      \hline
+    \textbf{Min (\si{\micro\watt\hour})} & \textbf{Max (\si{\micro\watt\hour})} & \textbf{Mean (\si{\micro\watt\hour})} & \textbf{Std (\si{\micro\watt\hour})} \\
+      \hline
+      98 & 164 & 118 & 38 \\
+    \end{tabular}
+  \end{table}
+
+\begin{itemize}
+    \item The wake-up stub is used to significantly reduce the power consumption of the ESP32 per cycle. We will wake up and transmit the data only once every 10 cycles to transmit data. This approach avoids the need for a full wake-up cycle for every event.
+    
+    \item \textbf{Cycle Energy Consumption:}
+    \begin{itemize}
+      \item \textbf{No Wake-Up Stub:} 481\,\si{\micro\watt\hour}.
+      \item \textbf{With Wake-Up Stub:} 
+      \[
+      \text{Average Energy per Cycle} = \frac{9 \times 118.8 + 1 \times 481}{10} = 156.02\,\si{\micro\watt\hour}.
+      \]
+    \end{itemize}
+    
+    \item \textbf{Energy Savings:}
+    \[
+    E_{\mathrm{saving}} = 481 - 156.02 = 324.98\,\si{\micro\watt\hour}.
+    \]
+    Over 100 cycles:
+    \[
+    E_{\mathrm{total\_saving}} = 324.98 \times 100 = 32{,}498\,\si{\micro\watt\hour}.
+    \]
+\end{itemize}
+
+Battery Life Calculation with Wake-Up Stub
+
+\textbf{Given:}
+\begin{itemize}
+    \item Battery capacity, \( C_\mathrm{batt} = 5{,}180{,}000 \, \si{\micro\watt\hour} \)
+    \item Energy per cycle with wake-up stub, \( E_{\mathrm{cycle}} = 156.02 \, \si{\micro\watt\hour} \)
+    \item Number of cycles per day, \( N_\mathrm{cycles} = 100 \)
+\end{itemize}
+
+\textbf{Formula for Battery Life (in days):}
+\[
+\text{Days} = \frac{C_{\mathrm{batt}}}{E_{\mathrm{cycle}} \times N_{\mathrm{cycles}}}
+\]
+
+\textbf{Substituting the values:}
+\[
+\text{Days} = \frac{5{,}180{,}000}{156.02 \times 100}
+\]
+\[
+\text{Days} = \frac{5{,}180{,}000}{15{,}602} \approx 331.4 \, \text{days}
+\]
+
+\textbf{Conclusion:} With the wake-up stub, the battery will last approximately \textbf{331 days} at 100 cycles per day.
 
 \subsection{Limitations (0.5p)}
 
@@ -568,7 +591,7 @@ The final solution meets the core requirements. However, it can be improved in t
     \item \texttt{wifi.c, wifi.h}: Initializes and manages the Wi-Fi connection (WPA2, SSID/password, IP assignment).
     \item \texttt{mqtt.c, mqtt.h}: Sets up MQTT connectivity, handles message publishing (e.g., PIR events, battery status).
     \item \texttt{sntp.c, sntp.h}: Configures SNTP for accurate time synchronization with NTP servers.
-    \item \texttt{gauge.c, gauge.h}: Includes battery gauge drivers (\texttt{lc709203f}) to measure voltage and state-of-charge (RSOC).
+    \item \texttt{gauge.c, gauge.h}: Includes battery gauge drivers to measure voltage and state-of-charge (RSOC).
 \end{itemize}
 
  
@@ -606,7 +629,7 @@ The final solution meets the core requirements. However, it can be improved in t
 	\subsubsection{Data Gaps Overview}
 	\label{sec:data_gaps}
 	
-	Despite good coverage, there were multi-day outages for each sensor due to initial deployment issues, holiday breaks, or multi-day trips. Tables~\ref{tab:pir_gaps} and~\ref{tab:magnetic_gaps} summarize these periods, including approximate reasons.
+	Despite good coverage, there were multi-day outages for each sensor due to initial deployment issues, holiday breaks multi-day trips and unnoticed issue with MQTT broker. Tables~\ref{tab:pir_gaps} and~\ref{tab:magnetic_gaps} summarize these periods, including reasons.
 	
 	\begin{table}[ht!]
 	\centering
@@ -622,7 +645,7 @@ The final solution meets the core requirements. However, it can be improved in t
 							   & 2024-11-11 14:48        & 2024-11-15 17:14       & $\sim4$ days      & Initial deployment           \\
 							   & 2024-11-17 14:50        & 2024-11-19 17:10       & $\sim2$ days      & Short trip                   \\
 							   & 2024-12-09 07:30        & 2024-12-12 13:30       & $\sim3$ days      & Pre-Christmas break          \\
-							   & 2024-12-21 08:08        & 2025-01-02 01:21       & $\sim12$ days     & Christmas break              \\
+							   & 2024-12-16 08:08        & 2025-01-02 01:21       & $\sim16$ days     & Christmas break              \\
 							   & 2025-01-13 07:54        & 2025-01-18 19:34       & $\sim5$ days      & Unnoticed MQTT broker issue               \\
 	\end{tabular}
 	\end{table}
@@ -639,7 +662,7 @@ The final solution meets the core requirements. However, it can be improved in t
 	2024-11-11 12:57        & 2024-11-15 17:17        & $\sim4$ days      & Initial deployment          \\
 	2024-11-17 18:48        & 2024-11-22 19:36        & $\sim3$ days      & Short trip                  \\
 	2024-12-08 00:18        & 2024-12-15 22:10        & $\sim8$ days      & Unnoticed cable disconnection         \\
-	2024-12-20 18:45        & 2025-01-03 19:49        & $\sim14$ days     & Christmas break             \\
+	2024-12-16 18:45        & 2025-01-03 19:49        & $\sim16$ days     & Christmas break             \\
 	2025-01-05 18:48        & 2025-01-18 19:32        & $\sim13$ days     & Unnoticed MQTT broker issue + cable disconnection \\
 	\hline
 	\end{tabular}
@@ -649,8 +672,6 @@ The final solution meets the core requirements. However, it can be improved in t
 	\textbf{Comment on Gaps.} 
 	These offline intervals primarily occurred around the initial deployment period (before mid-November), the Christmas holiday (late December), and unnoticed MQTT broker issue in January. Once reconnected, the sensors resumed normal operation, uploading new PIR or magnetic switch events to the MQTT broker.
 	
-
-    \item These extended offline intervals reflect times when the devices were disconnected or powered down (e.g., holidays). Once reconnected, all events were again captured and sent to the broker.
 \end{itemize}
 
 \pagebreak
@@ -664,6 +685,8 @@ The final solution meets the core requirements. However, it can be improved in t
 
     \item \textbf{Difficulties and Debugging Approach} \\
     One of the main hurdles was figuring out how to trace errors across multiple containers or services. I used Jupyter notebooks locally to prototype and test smaller parts of the project, especially the data processing and model training code. For remote debugging, I added detailed logging statements to monitor the flow of events, making it easier to see where a service was failing or how data was being passed around. I relied on logs from each service to understand what happened when a specific event was triggered. This helped me quickly track down configuration problems or code bugs. Over time, I learned how to rebuild and redeploy services faster, so I could iterate on fixes without wasting too much time.
+
+    \item The jupyter notebooks for testing and debugging this application can be found in \texttt{modeling/modeling.ipynb} and \texttt{monitoring/monitoring.ipynb}.
 \end{itemize}
 
 
@@ -675,36 +698,32 @@ The final solution meets the core requirements. However, it can be improved in t
     \begin{itemize}
         \item \textbf{Modeling (modeling/main.py):}
         \begin{itemize}
-            \item \texttt{TrainOccupancyModelEvent}: Triggers the \texttt{create\_occupancy\_model\_function}, which fetches sensor data (e.g.\ room usage) and trains an occupancy model (\texttt{train\_occupancy\_model}).  
+            \item \texttt{TrainOccupancyModelEvent}: Triggers the \texttt{create\_occupancy\_model\_function}, which fetches sensor data and trains an occupancy model (\texttt{train\_occupancy\_model}).  
             \item \texttt{TrainMotionModelEvent}: Invokes \texttt{create\_motion\_model\_function}, training a model that analyzes movement patterns and stores it (via \texttt{save\_model\_to\_minio}).  
-            \item \texttt{TrainBurglaryModelEvent}: Calls \texttt{create\_burglary\_model\_function}, training a burglary detection model for home security.
+            \item \texttt{TrainBurglaryModelEvent}: Calls \texttt{create\_burglary\_model\_function}, training a burglary detection model.
         \end{itemize}
 
         \item \textbf{Monitoring (monitoring/main.py):}
         \begin{itemize}
-            \item \texttt{CheckEmergencyEvent}: Triggers \texttt{check\_emergency\_detection\_function}, which runs \texttt{emergency\_detection\_workflow} and may emit an \texttt{EmergencyEvent} if thresholds are exceeded (e.g.\ no movement detected for a prolonged period).
-            \item \texttt{AnalyzeMotionEvent}: Triggers \texttt{motion\_analysis\_function}, executing \texttt{analyse\_motion\_patterns} to detect unusual motion trends.
+            \item \texttt{CheckEmergencyEvent}: Triggers \texttt{check\_emergency\_detection\_function}, which runs \texttt{emergency\_detection\_workflow} and may emit an \texttt{EmergencyEvent} if thresholds are exceeded.
+            \item \texttt{AnalyzeMotionEvent}: Triggers \texttt{motion\_analysis\_function}, executing \texttt{analyse\_motion\_patterns} to detect unusual motion trends and behavioral patterns.
             \item \texttt{CheckBurglaryEvent}: Fires \texttt{check\_burglary\_detection\_function}, running \texttt{detect\_burglary} logic and potentially dispatching a \texttt{BurglaryEvent}.
         \end{itemize}
 
         \item \textbf{Actuation (actuation/main.py):}
         \begin{itemize}
             \item \texttt{EmergencyEvent}: Calls \texttt{create\_emergency\_notification\_function}, which sends a high-priority (\texttt{send\_todo}) message to caregivers or relevant stakeholders.
-            \item \texttt{BurglaryEvent}: Invokes \texttt{create\_burglary\_notification\_function}, raising an alert for suspected unauthorized entry.
+            \item \texttt{BurglaryEvent}: Invokes \texttt{create\_burglary\_notification\_function}, which sends a high-priority (\texttt{send\_todo}) raising an alert for suspected unauthorized entry.
         \end{itemize}
     \end{itemize}
 
     \item \textbf{Frequency and Purpose of Events:}
     \begin{itemize}
-        \item \emph{Periodic Training}: The \emph{modeling} events (e.g.\ \texttt{TrainOccupancyModelEvent}) are fired at regular intervals (e.g.\ every few hours or days). This ensures the ML models remain up-to-date with evolving household patterns and occupant behavior.
-        \item \emph{Monitoring Checks}: The \emph{monitoring} events (\texttt{CheckEmergencyEvent}, \texttt{CheckBurglaryEvent}, \texttt{AnalyzeMotionEvent}) typically run more frequently (e.g.\ every 15\,minutes or hourly) to catch urgent situations promptly (medical emergencies, suspicious motion, etc.).
-        \item \emph{Actuation Alerts}: Whenever an emergency or burglary is detected, a one-shot event triggers \emph{actuation} logic, causing immediate notifications (\texttt{EmergencyEvent}, \texttt{BurglaryEvent}). These events focus on critical, time-sensitive responses, such as sending notifications to a caretaker or homeowner.
-    \end{itemize}
-
-    \item \textbf{Data Generated by the Custom Event Fabric:}
-    \begin{itemize}
+        \item \emph{Periodic Training}: The \emph{modeling} events (e.g.\ \texttt{TrainOccupancyModelEvent}) are fired at regular intervals (every week).
+        \item \emph{Monitoring Checks}: The \emph{monitoring} events (\texttt{CheckEmergencyEvent}, \texttt{CheckBurglaryEvent}, \texttt{AnalyzeMotionEvent}) typically run more frequently (e.g.\ every 15\,minutes or hourly) to catch urgent situations promptly (medical emergencies, suspicious motion, etc.) (Current setting is every 30 minutes).
+        \item \emph{Actuation Alerts}: Whenever an emergency or burglary is detected, a one-shot event triggers \emph{actuation} logic, causing immediate notifications (\texttt{EmergencyEvent}, \texttt{BurglaryEvent}).
         \item \emph{Sensor Data Retrieval}: On the modeling side, each training function fetches historical sensor data (e.g.\ from InfluxDB) via \texttt{fetch\_all\_sensor\_data} and prepares it for analytics (\texttt{prepare\_data\_for\_occupancy\_model}).
-        \item \emph{Learned Models}: After training, models and statistical summaries are uploaded to MinIO (\texttt{save\_model\_to\_minio}) and can be re-used by the monitoring flows to detect unusual patterns or emergencies.
+        \item \emph{Learned Models}: After training, models or statistical summaries are uploaded to MinIO (\texttt{save\_model\_to\_minio}) and can be re-used by the monitoring flows to detect unusual patterns or emergencies.
         \item \emph{Alarms \& Notifications}: \texttt{EmergencyEvent} and \texttt{BurglaryEvent} produce JSON payloads with risk-level and context (e.g.\ “Patient is in bathroom for some amount of time”). The \textit{actuation} component receives these payloads and relays them to external services (via \texttt{send\_todo}) for display in dashboards or push notifications.
     \end{itemize}
 \end{itemize}
@@ -716,12 +735,12 @@ The final solution meets the core requirements. However, it can be improved in t
     By default, these are set to \texttt{168h}. Retraining every week balances the need to adapt to new sensor data with the cost of computational resources. If the environment changes more rapidly, one could reduce the interval to improve model responsiveness. Conversely, if conditions are stable, retraining could be scheduled once a day or once a week to save resources. I chose 12 hours for faster debugging during the deployment phase.
 
     \item \textbf{Analysis Intervals (\texttt{ANALYSE\_MOTION\_INTERVAL}):}\\
-    Motion data analysis is set to \texttt{168h}, reflecting that aggregated motion patterns may be more meaningful over a full day’s worth of data. This can be shortened if near real-time detection is necessary (e.g.\ motion anomalies every few hours).
+    Motion data analysis is set to \texttt{168h}, reflecting that aggregated motion patterns may be more meaningful over a full day’s worth of data.
 
     \item \textbf{Emergency \& Burglary Checks (\texttt{CHECK\_EMERGENCY\_INTERVAL}, \texttt{CHECK\_BURGLARY\_INTERVAL}):}\\
     These intervals (\texttt{30m} for emergencies, \texttt{1h} for burglaries) reflect the urgency of the events. Emergency checks run every 30 minutes to promptly detect inactivity or other critical signals. Burglary checks run hourly, as unauthorized-entry patterns may be less frequent but still demand timely detection.
 
-    \item All these parameters reside in \texttt{monitoring/config.py} so that different environments (e.g.\ a small home vs.\ a large facility) can easily tune these intervals. Adjusting intervals can reduce system load, optimize battery usage on sensor devices, or improve detection responsiveness, depending on deployment requirements.
+    \item All these parameters reside in \texttt{monitoring/config.py} and \texttt{modeling/config.py} and are configurable.
 \end{itemize}
 
 
@@ -730,11 +749,11 @@ The final solution meets the core requirements. However, it can be improved in t
 
 \begin{itemize}
     \item \textbf{Environment and Modeling Approach} \\
-    Our setup monitors an apartment with two people and a cat, which introduces variability in sensor data. I chose a straightforward approach to detect possible emergencies based on how long someone remains in a single room. Specifically, I compute the \emph{mean} and \emph{standard deviation} (\( \sigma \)) of room-stay durations, then mark an event as an ``emergency'' if the measured time in that room falls outside a configurable threshold range:
+    My setup monitors an apartment with two people and a cat, which introduces variability in sensor data. I chose a straightforward approach to detect possible emergencies based on how long someone remains in a single room. Specifically, I compute the \emph{mean} and \emph{standard deviation} (\( \sigma \)) of room-stay durations, then mark an event as an ``emergency'' if the measured time in that room falls outside a configurable threshold range:
     \[
       (\text{mean} - k \times \sigma, \;\text{mean} + k \times \sigma).
     \]
-    Here, \(k\) is a tuning parameter (the number of standard deviations), set in code as \texttt{THRESHOLD\_FOR\_EMERGENCY\_DETECTION} (defaulting to 3). The idea is that if a resident stays significantly longer (or shorter) in a room than usual, it might indicate a problem (e.g., a fall, health emergency, or inability to leave).
+    Here, \(k\) is a tuning parameter (the number of standard deviations), set in code as \texttt{THRESHOLD\_FOR\_EMERGENCY\_DETECTION} (defaulting to 3). The idea is that if a resident stays significantly longer (or shorter) in a room than usual, it might indicate a problem (e.g., a fall, health emergency, or inability to leave). However, the time calculation is based on the movement, so if the patient is not moving within the room, it might not be detected as an emergency. On the other hand, this might be considered as an anomaly of transition detection (see the burglary use case).
 
     \item \textbf{Metrics Used for Comparison} \\
     \begin{itemize}
@@ -748,7 +767,7 @@ The final solution meets the core requirements. However, it can be improved in t
     \end{itemize}
 
     \item \textbf{Evolution by Re-Training the Model} \\
-    Our ``model'' is primarily a statistical table (\texttt{room\_stats}) of \texttt{(mean, std)} for each room. When re-trained:
+    My ``model'' is primarily a statistical table (\texttt{room\_stats}) of \texttt{(mean, std)} for each room. When re-trained:
     \begin{enumerate}
       \item I fetch a fresh window of sensor data (e.g.\ the last two weeks).
       \item I recalculate the mean and standard deviation for each room based on new data.
@@ -757,7 +776,7 @@ The final solution meets the core requirements. However, it can be improved in t
     This \emph{simple statistical approach} gradually adapts to changes in living patterns. For example, if a resident starts spending more time in the bedroom for legitimate reasons, over subsequent re-training cycles, the mean bedroom-stay duration will increase, reducing false emergency alerts.
 
     \item \textbf{Handling Two Residents and a Cat} \\
-    The presence of multiple residents and a pet can add noise. However, our focus was on the \emph{primary occupant’s time in each room}. Thus, I aggregate all motion events but rely on repeated triggers (like repeated \texttt{PIR} detections) to indicate continuous presence. In a real deployment, I could refine the sensor placement or logic to better distinguish individuals. For now, I maintain a single model that treats \textit{any} motion in a room as occupant presence.
+    The presence of multiple residents and a pet can add noise. However, my focus was on the \emph{primary occupant’s time in each room}. Thus, I aggregate all motion events but rely on repeated triggers (like repeated \texttt{PIR} detections) to indicate continuous presence. In a real deployment, I could refine the sensor placement or logic to better distinguish individuals. For now, I maintain a single model that treats \textit{any} motion in a room as occupant presence.
 
     \item \textbf{Code Snippets Illustrating Emergency Detection}
 \end{itemize}
@@ -808,6 +827,7 @@ Below are some sample messages generated by the \texttt{detect\_emergency} funct
 	\label{fig:detected_emergencies}
 \end{figure}
 
+\subsubsection{Graphs Comparing Different Weeks}
 \begin{itemize}
 \item Weekly means show slight variations, reflecting natural behavioral changes, such as more time in the kitchen during meals or in the living room during leisure.
 \item Larger \(\sigma\) for the bathroom indicates irregular usage patterns compared to other rooms.
@@ -819,7 +839,7 @@ Below are some sample messages generated by the \texttt{detect\_emergency} funct
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1.15\textwidth]{weekly_changes.pdf}
-	\caption{The weekly changes in the mean and std of the model.}
+	\caption{The weekly changes of the mean and std of different rooms of the apartment.}
 	\label{fig:detected_emergencies}
 \end{figure}
 
@@ -966,13 +986,13 @@ Saturday  & 22:38:24 & 01:14:20 \\ \hline
 	\begin{minipage}{0.45\textwidth}
 		\centering
 		\includegraphics[width=\textwidth]{biderictional_model1.pdf}
-		\caption{Bidirectional Model Of Transitions (24.11.- 1.12.2024)}
+		\caption{Bidirectional Graph Of Transitions (24.11.- 1.12.2024)}
 		\label{fig:model1}
 	\end{minipage}\hspace{0.04\textwidth}
 	\begin{minipage}{0.45\textwidth}
 		\centering
 		\includegraphics[width=\textwidth]{biderictional_model2.pdf}
-		\caption{Bidirectional Model Of Transitions (1.12.- 8.12.2024)}
+		\caption{Bidirectional Graph Of Transitions (1.12.- 8.12.2024)}
 		\label{fig:model2}
 	\end{minipage}
 \end{figure}
@@ -1017,19 +1037,18 @@ Saturday  & 22:38:24 & 01:14:20 \\ \hline
 \end{figure}
 
 \begin{itemize}
-	\item \textbf{Limitations of the Model:} The model cannot accurately capture movements involving multiple persons or more complex behavioral changes. It is designed for simpler, single-occupant scenarios.
+	\item \textbf{Limitations of the Model:} The model cannot accurately capture movements involving multiple persons or more complex behavioral changes. It is designed for simpler, single-occupant scenarios. It also might misinterpet the leaving of the apartment and falling asleep.
 	\item \textbf{Modeling Approach Selection:} The approach for detecting behavioral changes was chosen for its simplicity and effectiveness. By comparing models from the last two weeks, caregivers can easily identify significant changes in behavior.
-	\item \textbf{System and Model Awareness:} It is important to recognize that the data and metrics used are not perfect, and the model is a simplification of real-world behavior.
 	\item \textbf{Differentiating Information and To-Do Messages:} The differentiation between an "information" message and a "to-do" message is based on the modeling approach. The highest emergency is only for burglary and patient emergency event, during behavioral analysis I dont do any emergency detection.
 	\item \textbf{Communication with Visualization Component:} Information is communicated to the visualization component as shown in the provided image, ensuring that relevant data is displayed (unfortunaly not so clearly).
 	\item \textbf{Severity Calculation:} The severity of alerts is not dynamically calculated; it is assigned a fixed value based on predefined criteria.
-	\item \textbf{Emergency Detection Capability:} Yes, the modeling approach is capable of determining emergencies, as illustrated in the graph above.
+	\item \textbf{Emergency Detection Capability:} Yes, the modeling approach (The emergency model) is capable of determining emergencies, as illustrated in the graph above. However, the motion and behaviour model is not designed for detecting emergiences, rather then for showing the weekly trends to the caregivers
 \end{itemize}
 
 
 \subsection{ Use case 3: Burglary Detection (4p)}
 
-My own use case for the homecare hub involved burglary detection. For detection, I used Isolation Forest, which is capable of detecting anomalies in data. In this case, I used data on movement and transitions between rooms. I chose this model because I concluded that it would be easier to perform such anomaly detection for an apartment with multiple occupants. I used Isolation Forest because it can detect anomalies in data that are mutually independent.
+My own use case for the homecare hub involved burglary detection. For detection, I used Isolation Forest, which is capable of detecting anomalies in data. In this case, I used data on transitions between rooms (with times of the transitions). I chose this model because I concluded that it would be easier to perform such anomaly detection for an apartment with multiple occupants. I used Isolation Forest because it can detect anomalies in data that are mutually independent.
 
 \begin{minted}[fontsize=\small]{python}
 class BurglaryDetector:
@@ -1171,6 +1190,7 @@ Save Model Times    & 0.118 & 0.047 & 0.082 & 0.235 \\
 \toprule
 \textbf{Operation} & \textbf{Mean (s)} & \textbf{Std Dev (s)} & \textbf{Min (s)} & \textbf{Max (s)} \\
 \midrule
+Fetch/Preprocess Times   & 0.720 & 0.123 & 0.428 & 1.243 \\
 Train Times         & 0.803 & 0.202 & 0.708 & 1.400 \\
 Save Model Times    & 0.173 & 0.062 & 0.118 & 0.326 \\
 \bottomrule
@@ -1185,6 +1205,7 @@ Save Model Times    & 0.173 & 0.062 & 0.118 & 0.326 \\
 \toprule
 \textbf{Operation} & \textbf{Mean (s)} & \textbf{Std Dev (s)} & \textbf{Min (s)} & \textbf{Max (s)} \\
 \midrule
+Fetch/Preprocess Times   & 1.825 & 0.327 & 1.421 & 2.727 \\
 Train Times         & 2.906 & 0.289 & 2.625 & 3.727 \\
 Save Model Times    & 0.527 & 0.075 & 0.390 & 0.635 \\
 \bottomrule
@@ -1299,8 +1320,8 @@ The current system has several limitations:
 
 This project---named \textit{Digital Twin App}---is split into separate folders for each major component: 
 \texttt{actuation}, \texttt{modeling},\texttt{monitoring}, \texttt{viz-component} and \texttt{homecare-hub}. Each folder contains a \texttt{main.py} file
-that implements FastAPI endpoints and logic specific to that component.
-A common \texttt{base/} folder (symlinked or copied into each component) provides shared utilities 
+that implements logic specific to that component.
+A common \texttt{base/} folder (copied into each component) provides shared utilities 
 such as event classes, triggers, and helper functions to interact with databases, object storage, 
 and the HomeCare Hub utils to send the info and todo messages.
 
@@ -1336,9 +1357,9 @@ For additional information also refer to the README.md file in the code reposito
           (\texttt{motion\_analysis\_function}). Also configures periodic triggers for each event 
           based on intervals specified in \texttt{config.py}.
         \item \texttt{config.py}: Defines environment variables and intervals 
-          (e.g., \texttt{TRAIN\_OCCUPANCY\_MODEL\_INTERVAL = "12h"}, 
+          (e.g., \texttt{TRAIN\_OCCUPANCY\_MODEL\_INTERVAL = "168h"}, 
           \texttt{CHECK\_EMERGENCY\_INTERVAL = "30m"}). These parameters are adjustable 
-          to match system load and user needs.
+          to match user needs.
       \end{itemize}
   \end{itemize}
 
@@ -1368,20 +1389,6 @@ the microservices approach allowed me to build and deploy each component indepen
 This structure made debugging easier: if something failed in \texttt{monitoring}, it rarely 
 affected \texttt{actuation} or \texttt{modeling} directly. Additionally, relying on 
 \texttt{docker-compose} or \texttt{k8s/} manifests simplified local testing.
-
-\paragraph{Important Files and Their Roles.}
-\begin{itemize}
-    \item \texttt{main.py} in each folder: The entry point for that service, registering 
-          relevant routes and triggers.
-    \item \texttt{config.py} (particularly in \texttt{monitoring/}): 
-          Specifies intervals/wait times for each scheduled job, plus 
-          external IP addresses or credentials for InfluxDB, MinIO, etc.
-    \item \texttt{*model.py}: Contains the logic for training each ML model 
-          (occupancy, motion, burglary).
-    \item \texttt{docker-compose.yml} or \texttt{k8s/*.yaml} (not shown in detail above): 
-          Describes how to run each microservice or scale them using Docker/Kubernetes.
-\end{itemize}
-
 
 \section{Declaration of data usage}
 
